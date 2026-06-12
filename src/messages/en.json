@@ -179,6 +179,58 @@
       "needsGroups": "Your Round of 32 derives from your predicted group tables — finish all 12 groups first."
     }
   },
+  "Fun": {
+    "title": "Fun Picks",
+    "progress": "{done} / {total} answered",
+    "lockedBanner": "The Fun challenge is locked — answers are final.",
+    "autosaveHint": "Answers save automatically.",
+    "yes": "Yes",
+    "no": "No",
+    "ptsUpTo": "up to {pts} pts",
+    "ptsExact": "{pts} pts",
+    "playerPlaceholder": "Type a player's name…",
+    "questions": {
+      "total_goals": "Total goals in the tournament",
+      "total_red_cards": "Total red cards",
+      "penalty_shootouts": "Number of penalty shootouts",
+      "penalties_scored": "In-game penalties scored",
+      "golden_ball": "Golden Ball winner (best player)",
+      "golden_boot": "Golden Boot winner (top scorer)",
+      "golden_boot_goals": "Golden Boot goal count",
+      "hat_trick": "Will there be a hat-trick?",
+      "fastest_goal_minute": "Fastest goal (minute)",
+      "own_goals": "Total own goals",
+      "host_reaches_qf": "Will a host nation reach the quarter-finals?",
+      "highest_scoring_match": "Most goals in a single match"
+    },
+    "hints": {
+      "fastest_goal_minute": "Match minute of the earliest goal in any game (1–90+).",
+      "highest_scoring_match": "Total goals in the tournament's highest-scoring single match.",
+      "host_reaches_qf": "USA, Mexico or Canada reaching the quarter-finals."
+    }
+  },
+  "Playoff": {
+    "title": "Playoff Only",
+    "subtitle": "The real bracket — the 32 teams that actually qualified. Pick your way to the champion.",
+    "lockedBanner": "The Playoff challenge is locked — picks are final.",
+    "bracketPending": "The real Round of 32 pairings are still being confirmed. Check back in a few minutes."
+  },
+  "Redistribution": {
+    "title": "Knockout redistribution",
+    "explainer": "The group stage is over and the real bracket is set. You can re-pick your knockout bracket using the 32 teams that actually qualified — at a cost: all knockout points from the redistributed stage onward are multiplied down. Points already earned keep full value.",
+    "activeBadge": "{percent}% from {round}",
+    "logRow": "Redistribution #{generation}: from {round} — further knockout points × {percent}%",
+    "cta": "Redistribute before {round}",
+    "confirmTitle": "Are you sure?",
+    "confirmBody": "Your knockout picks from {round} onward will be replaced by a fresh bracket over the real teams. In exchange you'll earn only {percent}% of all further knockout points. Earlier rounds keep their full value. This cannot be undone.",
+    "confirm": "Redistribute — keep {percent}%",
+    "cancel": "Cancel",
+    "rejected": "Redistribution was rejected by the server — the stage may have already started, or you've already redistributed at this stage.",
+    "editorTitle": "Your redistributed bracket (from {round})",
+    "editorTitleLocked": "Your redistributed bracket (from {round}) — locked",
+    "editableUntil": "Editable until",
+    "lockedRoundsHint": "Earlier rounds are fixed to the real results — you can't re-predict the past."
+  },
   "Countdown": {
     "prefix": "{remaining} left",
     "daysHours": "{days}d {hours}h",

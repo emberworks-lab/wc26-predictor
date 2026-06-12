@@ -136,14 +136,12 @@ export default async function ChallengeCard({
               </form>
             )}
           </div>
-          {(challenge.kind === "full" || challenge.kind === "groups") && (
-            <Link
-              href={`/challenges/${challenge.kind}`}
-              className="self-start rounded-full bg-gold-500 px-5 py-2 text-xs font-semibold text-pitch-950 transition-colors hover:bg-gold-400"
-            >
-              {status === "open" ? t("predict") : t("viewPredictions")}
-            </Link>
-          )}
+          <Link
+            href={`/challenges/${challenge.kind}`}
+            className="self-start rounded-full bg-gold-500 px-5 py-2 text-xs font-semibold text-pitch-950 transition-colors hover:bg-gold-400"
+          >
+            {status === "open" ? t("predict") : t("viewPredictions")}
+          </Link>
         </div>
       ) : status === "open" ? (
         <form

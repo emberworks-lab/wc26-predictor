@@ -46,3 +46,7 @@ next-env.d.ts
 # supabase cli
 supabase/.temp/
 /.build/
+
+# supabase local CLI state
+supabase/.branches/
+supabase/.temp/

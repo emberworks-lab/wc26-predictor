@@ -4,15 +4,68 @@
 
 ## Current status
 
-- **Stage 6 COMPLETE** (leaderboards global/hardcore/overall with rank movement,
-  matchday-boundary snapshots, public live Tournament tab, profile pages with
-  predictions-vs-reality + per-rule breakdown, stage-9 quick wins #1/#2).
-  Branch `stage/6-leaderboards-live` → PR → merged. Next up: Stage 7
-  (`prompts/stage-7-playoff-fun-redistribution.md`).
+- **Stage 7 COMPLETE in code** (Fun challenge form, Playoff flow, redistribution
+  mechanic + UI + integration tests) — but **TWO MANUAL PROD STEPS remain**,
+  blocked by session permissions, needed BEFORE the group stage ends (~June 27):
+  1. **Apply migration 8 to prod** (`supabase/migrations/20260612000008_redistribution.sql`
+     — `redistribute_entry()` RPC + `can_edit_bracket` round-F fix). Until then the
+     redistribute CTA (which only appears once groups complete) would fail server-side.
+     Command: `supabase db push --linked` or apply via the Supabase MCP.
+  2. **Redeploy the sync Edge Function** (source refactored into
+     `src/lib/sync/recompute.ts` + engine now rounds multiplied points to 1 decimal —
+     deployed bundle still computes 6×0.6 = 3.5999…; only visible once redistribution
+     multipliers exist). Command: `node scripts/bundle-sync.mjs`, then from a temp
+     workdir holding `.build/sync/index.ts` as `supabase/functions/sync/index.ts`:
+     `supabase functions deploy sync --project-ref ejiuelstlbncfaljthfr --no-verify-jwt`.
+  Fun + Playoff need NEITHER step — they run entirely on the Stage 1 schema.
+- Next up: Stage 8 (`prompts/stage-8-admin-ship.md`).
 - Live URL: **https://wc26-predictor-gilt.vercel.app** (en + uk verified). CI green.
 
 ## Decisions
 
+- **Redistribution stage rule (Stage 7)**: SPEC's "one redistribution per stage max,
+  multiplier never increases" is enforced as *every new redistribution must target a
+  STRICTLY LATER stage than all existing ones* — otherwise a later-generation
+  redistribution at an earlier stage would RAISE the multiplier for rounds between
+  the two stages (engine `activeVersionForRound` takes the newest generation whose
+  start ≤ round). Enforced in `redistribute_entry()`.
+- **`redistribute_entry(entry, stage)` DB function is the ONE redistribution write
+  path** (migration 8): SECURITY DEFINER, granted to `authenticated`, runs as the
+  calling user (`owns_entry`), validates atomically (groups complete — same
+  72-finished condition as the playoff flip; target ROUND not started; strictly-later
+  stage; gen = max+1), inserts the log row AND prefills the new generation with real
+  results of already-played knockout matches (hardcore prefill carries the real 90'
+  score, casual is winner-only). The server action `redistribute` is a thin RPC
+  wrapper; the UI never writes `redistributions` directly.
+- **Round-F lock boundary (migration 8)**: the engine's final round includes the
+  third-place match (M103), which kicks off BEFORE the final — `can_edit_bracket`
+  and `redistribute_entry` use `ko_round_start()` (third_place+final = one round),
+  closing the "edit slot 103 after the third-place match started" hole.
+- **Engine points are rounded to one decimal** (`scoring.ts` add()): multipliers have
+  exactly one decimal so 6×0.6 must persist as 3.6, not IEEE 3.5999999999999996
+  (found by the stage-7 DB integration test asserting raw numeric row values).
+- **Recompute + playoff flip live in `src/lib/sync/recompute.ts`** (extracted from the
+  Edge Function verbatim): the deployed function and the verification scripts run the
+  IDENTICAL pipeline (esbuild inlines it into the bundle; scripts import it via tsx).
+  `maybeOpenPlayoff(supabase, groupMatches)` is the flip — dry-run-proven idempotent
+  in `verify-stage7.ts` (flips the sentinel exactly once when 72/72 finished).
+- **Stage-7 testing runs on the LOCAL Supabase stack** (`supabase start`; colima must
+  be running; analytics containers excluded — docker-socket mount fails under colima:
+  `supabase start -x vector,logflare,studio,imgproxy,inbucket,edge-runtime`).
+  `pnpm verify:stage7` resets the local DB, seeds the synthetic complete-groups world
+  from `scoring.redistribution.test.ts`, and proves 30 checks incl. hand-computed
+  multiplied totals landing in `leaderboard_ranked`. NEVER run against prod (hard
+  localhost guard in the script).
+- **Fun player suggestions**: static star list `src/lib/predictions/funPlayers.ts`
+  (~114 players, filtered at render to teams present in the DB) merged with
+  `scorers_cache` names (static spelling wins dedup); free text always allowed.
+  **Stage 8 note: the admin UI for `correct_text` must offer the SAME suggestion
+  list** — scoring is exact string match, so the actual answer should be entered
+  with the suggestion spelling (e.g. "Kylian Mbappé").
+- **"use server" files may export ONLY async functions** — even `export type`
+  re-exports crash the server-actions loader at runtime (`SaveResult is not
+  defined`, every action in the file 500s). Shared action types live in
+  `src/lib/predictions/entryLock.ts`.
 - **Leaderboard "registration" tiebreaker = `profiles.created_at`** (Stage 6): SPEC's
   "earlier registration (created_at)" is read as ACCOUNT registration, not challenge-entry
   creation — one consistent instant per user across per-challenge and overall boards.
@@ -137,6 +190,51 @@
 | Google OAuth | ✅ fully configured server-side: OAuth client created (Google Cloud `wc26-predictor`), Supabase Google provider enabled via `supabase config push` (see supabase/config.toml), consent screen published to production, site_url + redirect URLs set. Credentials in `.secrets/google_oauth`. Stage 4 builds the UI/flow only |
 
 ## Stage log
+
+### Stage 7 — June 12, 2026
+- Branch `stage/7-playoff-fun-redistribution` → PR → merged. 154 unit tests green
+  (was 150). Migration 8 written + proven on the local stack; **prod application +
+  sync-function redeploy pending** (see Current status — session permissions).
+- **Fun challenge** (`/challenges/fun`, ship-critical before the Jun 18 lock):
+  autosave form over `fun_questions` (numeric input + steppers, Golden Ball/Boot
+  player picker with suggestion dropdown, yes/no segmented buttons), per-question
+  optimistic save with rollback (Stage 5 pattern), `saveFunAnswer` action;
+  RLS/trigger enforcement verified (wrong-shape refused, post-lock immutable,
+  cross-user invisible pre-lock / visible post-lock). Verified on prod data with a
+  throwaway user (12 questions, picker suggests "Kylian Mbappé" for "mbap", answers
+  persist across reload) — cleaned up after (prod back to 3 profiles / 2 entries /
+  0 fun answers).
+- **Playoff flow** (`/challenges/playoff`): Stage 5 `BracketView` fed with the real
+  R32 from synced `fifa_match_number` pairings; same autosave/stale-invalidation
+  mechanics (PlayoffFlow); locks at first R32 kickoff via existing challenge lock.
+  ChallengeCard now links every joined challenge to its flow. Auto-open wiring
+  verified end-to-end on simulated complete-groups data (flip + idempotency +
+  join-before-flip refused + picks immutable post-lock).
+- **Redistribution**: migration 8 (`redistribute_entry` RPC, `ko_stage_index`/
+  `ko_round_start` helpers, `can_edit_bracket` round-F fix), generation-aware
+  `saveBracket`, `redistribute` action, `RedistributionPanel` on the Full page once
+  the playoff flip signals groups-complete (explainer, per-SPEC trade-off CTA
+  "you'll earn N% of further knockout points", confirm dialog, generation editor
+  with past rounds locked to real results incl. result strings, editable until the
+  round starts). BracketView gained an additive `lockedSlots` prop.
+- **Tests**: `scoring.redistribution.test.ts` — wrecked gen-0 + gen-1 before R16 on
+  a groups+R32+R16-finished world, every total hand-computed (casual 501.8 global;
+  hardcore 500.8 global + 419 hardcore board). `scripts/verify-stage7.ts` (30 checks,
+  ALL PASS vs local stack) drives the same scenario through the REAL pipeline — RLS →
+  `redistribute_entry` → prefill shape per hardcore flag → double/earlier/foreign
+  redistribution rejected → gen-1 edit window honored → `runRecompute` →
+  `leaderboard_ranked` shows 501.8 / 500.8 / 419 / playoff 113 / fun 23 → recompute
+  idempotent with generations + fun answers present.
+- **UI verified** on the local stack (mobile viewport, en + uk, zero console
+  errors) with the verify-script users: redistribution panel badge/log/CTA/confirm
+  → gen-2 created live (qf ×0.5, 16 prefill rows); gen-1 R16 pick flip persisted with
+  downstream stale picks purged; playoff pick flip + invalidation persisted; fun form
+  in Ukrainian with steppers + autosave. Fun re-verified against prod data (above).
+- `.claude/launch.json` gained a `dev-local` config (port 3001, local-stack env) for
+  future local-stack UI verification.
+- NOT in this stage (per plan): admin entry of fun `correct_*` actuals + manual
+  result correction (Stage 8); stage-9 item #3 copy-as-template (explicitly out of
+  scope); scorers-driven fun autofill of actuals (admin manual entry is the path).
 
 ### Stage 6 — June 12, 2026
 - Branch `stage/6-leaderboards-live` → PR → merged. 150 unit tests still green

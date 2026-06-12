@@ -877,8 +877,23 @@ export type Database = {
       invoke_sync: { Args: { p_mode: string }; Returns: undefined }
       is_admin: { Args: never; Returns: boolean }
       is_banned: { Args: never; Returns: boolean }
+      ko_round_start: {
+        Args: { s: Database["public"]["Enums"]["match_stage"] }
+        Returns: string
+      }
+      ko_stage_index: {
+        Args: { s: Database["public"]["Enums"]["match_stage"] }
+        Returns: number
+      }
       match_is_locked: { Args: { mid: number }; Returns: boolean }
       owns_entry: { Args: { eid: string }; Returns: boolean }
+      redistribute_entry: {
+        Args: {
+          p_entry_id: string
+          p_stage: Database["public"]["Enums"]["match_stage"]
+        }
+        Returns: number
+      }
       replace_entry_points: {
         Args: { p_entry_id: string; p_rows: Json; p_stats: Json }
         Returns: undefined
