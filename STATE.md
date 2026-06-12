@@ -46,7 +46,7 @@
 | Vercel | ✅ token in `.secrets/vercel_token`; project `prj_jPTbl9jkwCv2qVLo3VwIKPcLx8Dg` linked to repo, env vars set (SUPABASE_URL, ANON_KEY, FOOTBALL_API_KEY) |
 | Football API | ✅ key in `.env.local` + Vercel env as `FOOTBALL_API_KEY` (verified against /v4/competitions/WC) |
 | Supabase service role key | ❌ NOT yet set anywhere — Stage 3 must fetch it (dashboard → project settings → API) and add to Vercel env + Edge Function secrets |
-| Google OAuth | ❌ needed in Stage 4 — user creates OAuth client in Google Cloud Console; redirect URI will be `https://<supabase-project-ref>.supabase.co/auth/v1/callback` (exact value known after Stage 1) |
+| Google OAuth | ⏳ user is creating an OAuth client (Google Cloud project `wc26-predictor`, Web application, redirect URI `https://ejiuelstlbncfaljthfr.supabase.co/auth/v1/callback`, consent screen published to production). Stage 4: read credentials from `.secrets/google_oauth` (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET lines); if the file is missing, ship magic-link only per the stage prompt |
 
 ## Stage log
 
