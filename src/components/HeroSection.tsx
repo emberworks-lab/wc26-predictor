@@ -33,10 +33,8 @@ export default function HeroSection() {
         <p className="text-lg text-text-muted md:text-xl">{t("tagline")}</p>
 
         <Link
-          href="/login"
-          aria-disabled="true"
-          tabIndex={-1}
-          className="pointer-events-none mt-2 inline-flex items-center justify-center rounded-full bg-gold-500 px-8 py-3 text-base font-semibold text-pitch-950 opacity-50 transition-opacity"
+          href="/sign-in"
+          className="mt-2 inline-flex items-center justify-center rounded-full bg-gold-500 px-8 py-3 text-base font-semibold text-pitch-950 transition-colors hover:bg-gold-400"
         >
           {t("signInButton")}
         </Link>

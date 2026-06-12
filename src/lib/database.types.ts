@@ -70,6 +70,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bracket_predictions_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_totals"
+            referencedColumns: ["entry_id"]
+          },
+          {
             foreignKeyName: "bracket_predictions_home_team_id_fkey"
             columns: ["home_team_id"]
             isOneToOne: false
@@ -151,6 +158,45 @@ export type Database = {
         }
         Relationships: []
       }
+      entry_stats: {
+        Row: {
+          computed_at: string
+          correct_ko_picks: number
+          correct_outcomes: number
+          correct_qualifiers: number
+          entry_id: string
+        }
+        Insert: {
+          computed_at?: string
+          correct_ko_picks?: number
+          correct_outcomes?: number
+          correct_qualifiers?: number
+          entry_id: string
+        }
+        Update: {
+          computed_at?: string
+          correct_ko_picks?: number
+          correct_outcomes?: number
+          correct_qualifiers?: number
+          entry_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entry_stats_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: true
+            referencedRelation: "challenge_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entry_stats_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: true
+            referencedRelation: "leaderboard_totals"
+            referencedColumns: ["entry_id"]
+          },
+        ]
+      }
       fun_answers: {
         Row: {
           bool_answer: boolean | null
@@ -186,6 +232,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "challenge_entries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fun_answers_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_totals"
+            referencedColumns: ["entry_id"]
           },
           {
             foreignKeyName: "fun_answers_question_id_fkey"
@@ -312,6 +365,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "challenge_entries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_predictions_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_totals"
+            referencedColumns: ["entry_id"]
           },
           {
             foreignKeyName: "match_predictions_match_id_fkey"
@@ -446,6 +506,13 @@ export type Database = {
             referencedRelation: "challenge_entries"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "points_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_totals"
+            referencedColumns: ["entry_id"]
+          },
         ]
       }
       profiles: {
@@ -507,6 +574,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "challenge_entries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "redistributions_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_totals"
+            referencedColumns: ["entry_id"]
           },
         ]
       }
@@ -657,7 +731,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      leaderboard_totals: {
+        Row: {
+          challenge_id: number | null
+          created_at: string | null
+          entry_id: string | null
+          global_points: number | null
+          hardcore: boolean | null
+          hardcore_points: number | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_entries_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_edit_bracket: { Args: { eid: string; gen: number }; Returns: boolean }
@@ -667,10 +767,15 @@ export type Database = {
       }
       challenge_is_locked: { Args: { cid: number }; Returns: boolean }
       entry_challenge_locked: { Args: { eid: string }; Returns: boolean }
+      invoke_sync: { Args: { p_mode: string }; Returns: undefined }
       is_admin: { Args: never; Returns: boolean }
       is_banned: { Args: never; Returns: boolean }
       match_is_locked: { Args: { mid: number }; Returns: boolean }
       owns_entry: { Args: { eid: string }; Returns: boolean }
+      replace_entry_points: {
+        Args: { p_entry_id: string; p_rows: Json; p_stats: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       challenge_kind: "full" | "groups" | "playoff" | "fun"

@@ -1,0 +1,39 @@
+{
+  "count": 2,
+  "scorers": [
+    {
+      "player": {
+        "id": 39237,
+        "name": "Julián Quiñones"
+      },
+      "team": {
+        "id": 769,
+        "name": "Mexico",
+        "shortName": "Mexico",
+        "tla": "MEX",
+        "crest": "https://crests.football-data.org/769.svg"
+      },
+      "playedMatches": 1,
+      "goals": 1,
+      "assists": null,
+      "penalties": null
+    },
+    {
+      "player": {
+        "id": 3305,
+        "name": "Raúl Jiménez"
+      },
+      "team": {
+        "id": 769,
+        "name": "Mexico",
+        "shortName": "Mexico",
+        "tla": "MEX",
+        "crest": "https://crests.football-data.org/769.svg"
+      },
+      "playedMatches": 1,
+      "goals": 1,
+      "assists": null,
+      "penalties": null
+    }
+  ]
+}
