@@ -4,9 +4,8 @@
 
 ## Current status
 
-- **Stage 3 COMPLETE** (data layer: API client, seed, sync/recompute Edge Function,
-  pg_cron). Stage 4 in progress in the same session, branch `stage/3-4-data-auth`
-  (one PR for both stages).
+- **Stage 3 + Stage 4 COMPLETE** (data layer + auth/app shell), built on one branch
+  `stage/3-4-data-auth`, one PR. Next up: Stage 5 (`prompts/stage-5-predictions.md`).
 - Live URL: **https://wc26-predictor-gilt.vercel.app** (en + uk verified). CI green.
 
 ## Decisions
@@ -95,6 +94,41 @@
 | Google OAuth | ✅ fully configured server-side: OAuth client created (Google Cloud `wc26-predictor`), Supabase Google provider enabled via `supabase config push` (see supabase/config.toml), consent screen published to production, site_url + redirect URLs set. Credentials in `.secrets/google_oauth`. Stage 4 builds the UI/flow only |
 
 ## Stage log
+
+### Stage 4 — June 12, 2026
+- Same branch/PR as Stage 3 (`stage/3-4-data-auth`).
+- **Auth**: magic link + Google via @supabase/ssr. `src/proxy.ts` chains next-intl with
+  Supabase session refresh; `/auth/callback` (outside the locale tree, excluded from the
+  middleware matcher) exchanges the code and redirects to a locale-prefixed `next`.
+  Sign-in page with both flows (server actions in `(marketing)/sign-in/actions.ts`).
+  Magic link uses the default PKCE flow — the link must be opened in the browser that
+  requested it (fine for the friend group; copy says so on the sent screen).
+- **DEVIATION from the stage-4 prompt**: no `on auth.users` profile trigger. The Stage 1
+  schema deliberately ships a `profiles_insert` self-policy + column grants instead —
+  onboarding (`/[locale]/onboarding`) creates the profile row (unique display name,
+  case-insensitive via citext; locale; hardcore explainer). "Profile exists" = onboarded;
+  the `(app)` layout redirects no-session → sign-in, no-profile → onboarding. This avoids
+  placeholder names leaking to public profile reads.
+- **App shell**: route groups `(marketing)` (landing, sign-in, rules — public) and `(app)`
+  (challenges, tournament, leaderboards, profile — gated). `TabNav` bottom bar on mobile /
+  horizontal under header on desktop. Header shows auth state (profile chip or sign-in CTA).
+- **Challenges home**: 4 cards from real `challenges` rows — status (open / locked /
+  opens-after-groups via the 2999 sentinel), lock time + live countdown, join with hardcore
+  checkbox, joined state, hardcore toggle until lock. Join/toggle are thin server actions;
+  RLS does the enforcement.
+- **Rules page**: scoring tables render from `engine/scoring.POINTS` (can't drift from the
+  engine); deadlines pull real `locks_at` from the DB; both locales.
+- **`<KickoffTime>`**: shared UTC→local renderer (SSR Europe/Kyiv default per SPEC, browser
+  tz after hydration). `<Countdown>` for lock deadlines.
+- **Verified server-side** (`scripts/verify-stage4.ts`, all PASS, run against prod):
+  case-insensitive display-name uniqueness (23505), join open challenge creates entry,
+  playoff join refused (42501), cross-user entry insert refused (42501), hardcore toggle,
+  Google authorize 302 → accounts.google.com. Local prod build: en/uk landing, sign-in,
+  rules render; signed-out /challenges 307s to sign-in. Entries metadata (incl. hardcore
+  flag) is public by design — predictions are the protected thing (SPEC).
+- Abuse limits: kept Supabase defaults (magic-link 60s cooldown, built-in email ~2-4/h cap,
+  30 sign-ins/5min/IP) — already tight for a friend group; not customized.
+- Magic-link E2E on the deployed URL verified post-merge (see PR notes / below).
 
 ### Stage 3 — June 12, 2026
 - Branch `stage/3-4-data-auth` (shared with Stage 4, one PR for both).

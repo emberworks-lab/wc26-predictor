@@ -1,6 +1,8 @@
 {
   "Header": {
     "wordmark": "WC26 Predictor",
+    "signIn": "Sign in",
+    "account": "Account",
     "switchLocale": {
       "en": "EN",
       "uk": "UK"
@@ -38,6 +40,165 @@
     }
   },
   "Footer": {
-    "tagline": "Made for friends · World Cup 2026"
+    "tagline": "Made for friends · World Cup 2026",
+    "rulesLink": "Rules & scoring"
+  },
+  "Nav": {
+    "label": "Main navigation",
+    "challenges": "Challenges",
+    "tournament": "Tournament",
+    "leaderboards": "Leaderboards",
+    "profile": "Profile"
+  },
+  "SignIn": {
+    "title": "Sign in",
+    "subtitle": "No passwords — a magic link or your Google account.",
+    "googleButton": "Continue with Google",
+    "or": "or",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "magicLinkButton": "Send magic link",
+    "sending": "Sending…",
+    "sentTitle": "Check your inbox",
+    "sentBody": "We sent you a sign-in link. Open it in this browser to continue.",
+    "hint": "First time here? Signing in creates your account.",
+    "errors": {
+      "invalidEmail": "That doesn't look like a valid email address.",
+      "rateLimited": "Too many attempts — wait a minute and try again.",
+      "generic": "Sign-in failed. Please try again."
+    }
+  },
+  "Onboarding": {
+    "title": "Almost there",
+    "subtitle": "Set up your player profile.",
+    "nameLabel": "Display name",
+    "namePlaceholder": "e.g. GoldenBoot99",
+    "nameHint": "3–20 characters. Visible on leaderboards. Must be unique.",
+    "localeLabel": "Language",
+    "locales": {
+      "en": "English",
+      "uk": "Українська"
+    },
+    "hardcoreTitle": "Hardcore mode 🔥",
+    "hardcoreBody": "When joining a challenge you can flip on hardcore: you predict exact scores instead of just outcomes and compete on a separate bonus leaderboard too. You can toggle it per challenge until that challenge locks.",
+    "submit": "Start playing",
+    "saving": "Saving…",
+    "errors": {
+      "invalidName": "Name must be 3–20 characters: letters, digits, spaces, _ . -",
+      "nameTaken": "That name is already taken (names are case-insensitive).",
+      "generic": "Could not save your profile. Please try again."
+    }
+  },
+  "ChallengesHome": {
+    "title": "Challenges",
+    "status": {
+      "open": "Open",
+      "locked": "Locked",
+      "opensAfterGroups": "Opens after groups"
+    },
+    "locksAt": "Locks",
+    "playoffHint": "Opens when the group stage finishes; picks lock at the first R32 kickoff:",
+    "joined": "You're in ✓",
+    "hardcoreBadge": "Hardcore",
+    "hardcoreOn": "Switch to hardcore",
+    "hardcoreOff": "Switch to casual",
+    "joinHardcore": "Join in hardcore mode (exact scores)",
+    "join": "Join",
+    "lockedHint": "This challenge is locked — predictions are frozen.",
+    "playoffJoinHint": "Come back once the group stage is done."
+  },
+  "Countdown": {
+    "prefix": "{remaining} left",
+    "daysHours": "{days}d {hours}h",
+    "hoursMinutes": "{hours}h {minutes}m",
+    "minutes": "{minutes}m"
+  },
+  "Tournament": {
+    "title": "Tournament",
+    "comingSoon": "Live group tables, results and the bracket land here soon."
+  },
+  "Leaderboards": {
+    "title": "Leaderboards",
+    "comingSoon": "Global and hardcore standings appear here once predictions score."
+  },
+  "Profile": {
+    "title": "Profile",
+    "displayName": "Display name",
+    "preferredLocale": "Language",
+    "locales": {
+      "en": "English",
+      "uk": "Українська"
+    },
+    "hardcoreBadges": "Hardcore badges",
+    "noHardcore": "No hardcore entries yet.",
+    "signOut": "Sign out"
+  },
+  "Rules": {
+    "title": "Rules & scoring",
+    "intro": "One scoring table for everyone; hardcore players earn extra bonus points on a separate board. Points are recomputed from official results after every sync.",
+    "pts": "{points} pts",
+    "deadlines": {
+      "title": "Deadlines",
+      "main": "Full Tournament, Groups Only and Fun Picks lock at the kickoff of the last first-round group match:",
+      "playoff": "Playoff Only opens when the group stage finishes and locks at the first Round-of-32 kickoff:",
+      "kickedOff": "Any match that has already kicked off is locked for everyone — late joiners simply score 0 on it.",
+      "serverSide": "All locks are enforced server-side. Nobody can see your unlocked predictions, and nobody can edit locked ones."
+    },
+    "hardcore": {
+      "title": "Hardcore mode",
+      "body": "Hardcore players predict exact scores. Match outcomes are derived from those scorelines for the global leaderboard, and exact-score bonuses count on the separate hardcore leaderboard. You choose hardcore per challenge when joining and can toggle it until that challenge locks."
+    },
+    "group": {
+      "title": "Group stage",
+      "outcome": "Correct match outcome (win / draw / loss)",
+      "exactOrder": "Exact final group order (all 4 places, per group)",
+      "top2": "Correct top-2 qualifier (per team)",
+      "third": "Correct third-place qualifier (per team)"
+    },
+    "knockout": {
+      "title": "Knockout",
+      "note": "Per real team you predicted to reach that round. A team that fell short scores 0 — that's what redistribution is for.",
+      "r16": "Predicted team reaches the Round of 16",
+      "qf": "Predicted team reaches the quarter-final",
+      "sf": "Predicted team reaches the semi-final",
+      "final": "Predicted team reaches the final",
+      "champion": "Predicted champion wins it all",
+      "thirdPlace": "Third-place match winner",
+      "aetFlag": "Correct \"extra time / penalties\" flag on a correctly picked match"
+    },
+    "hardcoreTable": {
+      "title": "Hardcore bonuses",
+      "note": "Counted on the hardcore leaderboard only.",
+      "exactScore": "Exact score (group match or knockout 90 minutes)",
+      "goalDiff": "Correct goal difference in a non-draw",
+      "advancePick": "Correct advance pick after a predicted knockout draw"
+    },
+    "fun": {
+      "title": "Fun Picks",
+      "body": "Twelve one-off questions, locked with the main deadline. Numeric questions score by closeness to the real value.",
+      "pick": "Exact pick (e.g. Golden Ball winner)",
+      "yesNo": "Correct yes/no answer",
+      "numeric": "Numeric question",
+      "numericValue": "up to 10"
+    },
+    "redistribution": {
+      "title": "Knockout redistribution",
+      "body": "After the group stage, Full Tournament players may re-pick their knockout bracket using the real qualified teams — at a price: every knockout point from that stage onward is multiplied down.",
+      "stages": {
+        "r32": "Redistributed before the Round of 32",
+        "r16": "Redistributed before the Round of 16",
+        "qf": "Redistributed before the quarter-finals",
+        "sf": "Redistributed before the semi-finals",
+        "final": "Redistributed before the final"
+      },
+      "note": "One redistribution per stage at most; the multiplier never goes back up. Points earned before redistributing keep full value."
+    },
+    "tiebreakers": {
+      "title": "Leaderboard tiebreakers",
+      "qualifiers": "More correctly predicted qualifiers (top-2 + thirds)",
+      "koPicks": "More correct knockout advancing picks",
+      "outcomes": "More correct group match outcomes",
+      "registration": "Earlier registration"
+    }
   }
 }
