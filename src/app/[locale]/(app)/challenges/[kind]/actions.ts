@@ -13,9 +13,11 @@ import { createClient } from "@/lib/supabase/server";
  *
  * No revalidatePath on purpose: autosave fires on every tap and the client
  * owns the working state — a router refresh per save would fight it.
+ *
+ * NOTE: "use server" files may only export async functions at runtime —
+ * even `export type` re-exports break the server-actions loader. Import
+ * SaveResult from @/lib/predictions/entryLock instead.
  */
-
-export type { SaveResult };
 
 export async function saveMatchPrediction(input: {
   entryId: string;
