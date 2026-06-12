@@ -14,7 +14,8 @@ const getServerTz = () => DEFAULT_TZ;
 
 export interface KickoffTimeProps {
   utc: string | Date;
-  dateStyle?: Intl.DateTimeFormatOptions["dateStyle"];
+  /** "none" renders the time only (e.g. schedule rows under a date header). */
+  dateStyle?: Intl.DateTimeFormatOptions["dateStyle"] | "none";
   timeStyle?: Intl.DateTimeFormatOptions["timeStyle"];
   className?: string;
 }
@@ -35,7 +36,7 @@ export default function KickoffTime({
 
   const date = typeof utc === "string" ? new Date(utc) : utc;
   const formatted = new Intl.DateTimeFormat(locale, {
-    dateStyle,
+    dateStyle: dateStyle === "none" ? undefined : dateStyle,
     timeStyle,
     timeZone,
   }).format(date);

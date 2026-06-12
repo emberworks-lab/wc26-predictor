@@ -73,6 +73,13 @@ export type Database = {
             foreignKeyName: "bracket_predictions_entry_id_fkey"
             columns: ["entry_id"]
             isOneToOne: false
+            referencedRelation: "leaderboard_entry_rows"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "bracket_predictions_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_totals"
             referencedColumns: ["entry_id"]
           },
@@ -192,6 +199,13 @@ export type Database = {
             foreignKeyName: "entry_stats_entry_id_fkey"
             columns: ["entry_id"]
             isOneToOne: true
+            referencedRelation: "leaderboard_entry_rows"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "entry_stats_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: true
             referencedRelation: "leaderboard_totals"
             referencedColumns: ["entry_id"]
           },
@@ -232,6 +246,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "challenge_entries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fun_answers_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_entry_rows"
+            referencedColumns: ["entry_id"]
           },
           {
             foreignKeyName: "fun_answers_entry_id_fkey"
@@ -290,6 +311,7 @@ export type Database = {
           board: string
           challenge_id: number | null
           id: number
+          matchday_date: string
           points: number
           rank: number
           taken_at: string
@@ -299,6 +321,7 @@ export type Database = {
           board: string
           challenge_id?: number | null
           id?: never
+          matchday_date: string
           points: number
           rank: number
           taken_at?: string
@@ -308,6 +331,7 @@ export type Database = {
           board?: string
           challenge_id?: number | null
           id?: never
+          matchday_date?: string
           points?: number
           rank?: number
           taken_at?: string
@@ -365,6 +389,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "challenge_entries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_predictions_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_entry_rows"
+            referencedColumns: ["entry_id"]
           },
           {
             foreignKeyName: "match_predictions_entry_id_fkey"
@@ -510,6 +541,13 @@ export type Database = {
             foreignKeyName: "points_entry_id_fkey"
             columns: ["entry_id"]
             isOneToOne: false
+            referencedRelation: "leaderboard_entry_rows"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "points_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
             referencedRelation: "leaderboard_totals"
             referencedColumns: ["entry_id"]
           },
@@ -574,6 +612,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "challenge_entries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "redistributions_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_entry_rows"
+            referencedColumns: ["entry_id"]
           },
           {
             foreignKeyName: "redistributions_entry_id_fkey"
@@ -731,6 +776,68 @@ export type Database = {
       }
     }
     Views: {
+      leaderboard_entry_rows: {
+        Row: {
+          challenge_id: number | null
+          correct_ko_picks: number | null
+          correct_outcomes: number | null
+          correct_qualifiers: number | null
+          display_name: string | null
+          entry_id: string | null
+          global_points: number | null
+          hardcore: boolean | null
+          hardcore_points: number | null
+          registered_at: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_entries_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leaderboard_overall_ranked: {
+        Row: {
+          board: string | null
+          correct_ko_picks: number | null
+          correct_outcomes: number | null
+          correct_qualifiers: number | null
+          display_name: string | null
+          points: number | null
+          rank: number | null
+          registered_at: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      leaderboard_ranked: {
+        Row: {
+          board: string | null
+          challenge_id: number | null
+          correct_ko_picks: number | null
+          correct_outcomes: number | null
+          correct_qualifiers: number | null
+          display_name: string | null
+          entry_id: string | null
+          hardcore: boolean | null
+          points: number | null
+          rank: number | null
+          registered_at: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       leaderboard_totals: {
         Row: {
           challenge_id: number | null
@@ -775,6 +882,10 @@ export type Database = {
       replace_entry_points: {
         Args: { p_entry_id: string; p_rows: Json; p_stats: Json }
         Returns: undefined
+      }
+      write_leaderboard_snapshots: {
+        Args: { p_matchday?: string }
+        Returns: number
       }
     }
     Enums: {

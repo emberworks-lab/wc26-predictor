@@ -187,11 +187,58 @@
   },
   "Tournament": {
     "title": "Tournament",
-    "comingSoon": "Live group tables, results and the bracket land here soon."
+    "sections": "Tournament sections",
+    "tabs": {
+      "groups": "Groups",
+      "matches": "Matches",
+      "scorers": "Scorers",
+      "bracket": "Bracket"
+    },
+    "group": "Group {group}",
+    "groupsHint": "Top 2 of each group qualify (solid line); the 8 best third-placed teams join them (dashed line).",
+    "table": {
+      "team": "Team",
+      "played": "P",
+      "won": "W",
+      "drawn": "D",
+      "lost": "L",
+      "goals": "G",
+      "goalDiff": "GD",
+      "points": "Pts"
+    },
+    "stages": {
+      "r32": "Round of 32",
+      "r16": "Round of 16",
+      "qf": "Quarter-final",
+      "sf": "Semi-final",
+      "third_place": "Third place",
+      "final": "Final"
+    },
+    "live": "Live",
+    "fullTime": "FT",
+    "pens": "pens",
+    "aet": "AET",
+    "noScorers": "Scorer stats appear after the first goals are synced.",
+    "scorerCols": {
+      "player": "Player",
+      "goals": "Goals",
+      "assists": "Assists",
+      "penalties": "Pens"
+    },
+    "bracketAfterGroups": "The real bracket appears once the group stage wraps up and the Round of 32 pairings are set (June 27)."
   },
   "Leaderboards": {
     "title": "Leaderboards",
-    "comingSoon": "Global and hardcore standings appear here once predictions score."
+    "challengeTabs": "Challenge",
+    "overall": "Overall",
+    "boardGlobal": "Global",
+    "boardHardcore": "Hardcore",
+    "hardcoreHint": "Hardcore board: exact-score bonus points only, hardcore entries only.",
+    "yourPosition": "Your position",
+    "you": "You",
+    "movementNew": "New",
+    "statLine": "Qualifiers {qualifiers} · Outcomes {outcomes}",
+    "empty": "Nobody on this board yet — points appear once predicted matches finish."
   },
   "Profile": {
     "title": "Profile",
@@ -203,7 +250,33 @@
     },
     "hardcoreBadges": "Hardcore badges",
     "noHardcore": "No hardcore entries yet.",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "myPredictions": "My challenges",
+    "noEntries": "No challenges joined yet.",
+    "hardcore": "Hardcore",
+    "memberSince": "Playing since",
+    "visitorNote": "Predictions are visible only for matches that already kicked off — no spying on open picks.",
+    "redistributed": "Bracket redistributed before {stage} — knockout points from there on count at {percent}%.",
+    "noPointsYet": "No points yet.",
+    "vsReality": "Predictions vs results",
+    "noLockedPredsOwn": "None of your predicted matches has kicked off yet.",
+    "noLockedPreds": "No predictions visible yet — they unlock as matches kick off.",
+    "pick": "pick",
+    "championPick": "Champion pick",
+    "noChampionOwn": "No champion picked yet.",
+    "hiddenUntilLock": "Hidden until the challenge locks.",
+    "categories": {
+      "GROUP_OUTCOME": "Correct match outcomes",
+      "GROUP_EXACT_ORDER": "Exact group orders",
+      "QUALIFIER_TOP2": "Top-2 qualifiers",
+      "QUALIFIER_THIRD": "Third-place qualifiers",
+      "KO_REACH": "Teams reaching knockout rounds",
+      "KO_AET_FLAG": "Extra time / penalty calls",
+      "HC_EXACT_SCORE": "Exact scores 🔥",
+      "HC_GOAL_DIFF": "Correct goal differences 🔥",
+      "HC_ADVANCE_PICK": "Shootout advancers 🔥",
+      "FUN": "Fun answers"
+    }
   },
   "Rules": {
     "title": "Rules & scoring",

@@ -28,7 +28,7 @@ import type {
 } from "@/lib/predictions/types";
 
 import { saveBracket, saveMatchPrediction } from "./actions";
-import BracketView from "./BracketView";
+import BracketView from "@/components/BracketView";
 import GroupStage from "./GroupStage";
 import ThirdsView from "./ThirdsView";
 

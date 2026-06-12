@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 
 import { signOut } from "./actions";
+import ProfileView from "./ProfileView";
 
 export default async function ProfilePage({
   params,
@@ -70,6 +71,13 @@ export default async function ProfilePage({
             <p className="text-sm text-text-muted">{t("noHardcore")}</p>
           )}
         </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-text-muted">
+          {t("myPredictions")}
+        </h2>
+        <ProfileView userId={user!.id} isOwner />
       </div>
 
       <form action={signOut} className="flex">
