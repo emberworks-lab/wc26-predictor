@@ -4,12 +4,32 @@
 
 ## Current status
 
-- **Stage 1 COMPLETE.** Next up: Stage 2 (`prompts/stage-2-engines.md`) and/or Stage 4
+- **Stage 2 COMPLETE** (pure domain engines in `src/engine/`, exhaustively unit-tested).
+  Next up: Stage 3 (`prompts/stage-3-data-sync.md`) and/or Stage 4
   (`prompts/stage-4-auth-shell.md`, parallel branch).
 - Live URL: **https://wc26-predictor-gilt.vercel.app** (en + uk verified). CI green.
 
 ## Decisions
 
+- **Group tiebreakers follow the official FIFA WC26 Regulations Article 13, which differ
+  from the original SPEC draft**: head-to-head among tied teams comes FIRST (then overall
+  GD, overall goals, conduct score, FIFA World Ranking — no drawing of lots at all).
+  SPEC.md was corrected in the same commit (Stage 2). Source: FIFA regulations PDF
+  (May 2026 edition), pp. 26–27:
+  https://digitalhub.fifa.com/m/636f5c9c6f29771f/original/FWC2026_regulations_EN.pdf
+- **Annex C (third-place → R32 slot mapping, all 495 combinations)** extracted
+  programmatically from the same FIFA PDF (Annex C, pp. 80–97) into
+  `src/engine/r32annex.data.ts`; cross-checked against the per-slot candidate lists on
+  https://en.wikipedia.org/wiki/2026_FIFA_World_Cup_knockout_stage (all assignments
+  consistent). Invariant tests cover all 495 rows; 15 rows are pinned to hand-read PDF
+  values. Third-place slots are hosted by winners of A, B, D, E, G, I, K, L
+  (matches M79, M85, M81, M74, M82, M77, M87, M80).
+- **Engine scoring conventions** (documented in `src/engine/scoring.ts` header):
+  outcome-only predictions become synthetic 1:0/0:0/0:1 scores for predicted tables;
+  hardcore knockout score bonuses require the user's derived pairing to equal the real
+  pairing; exact-score (5) and GD (2) hardcore bonuses are exclusive tiers; AET/pens flag
+  pays +1 only on a correct, flagged, beyond-90' match; third-place qualifier bonuses pay
+  only once all 12 groups are complete.
 - GitHub owner for the repo: **`emberworks-lab` org**, repo is **PUBLIC** (confirmed by
   user, June 12 2026 — Vercel Hobby cannot deploy private org repos; never commit secrets).
 - Supabase project: **`wc26-predictor`**, ref `ejiuelstlbncfaljthfr`, region `eu-central-1`,
@@ -50,6 +70,21 @@
 
 ## Stage log
 
+### Stage 2 — June 12, 2026
+- Branch `stage/2-engines` → PR → merged to main. All pure TypeScript under `src/engine/`
+  (no I/O imports — verified): `types.ts`, `groupTable.ts` (Article 13 tiebreakers incl.
+  recursive head-to-head sub-tables), `bestThirds.ts`, `r32annex.data.ts` (full 495-row
+  Annex C), `r32Mapping.ts` (`buildR32` + allowed-slot constants), `knockoutSim.ts`
+  (official match graph M73–M104, `simulateBracket`), `scoring.ts` (`computePoints`:
+  entire SPEC table incl. hardcore layer, fun closeness formula, redistribution
+  multipliers, idempotent/total), `locks.ts` (match/challenge locks, matchday-1 deadline,
+  playoff window, admin override), `leaderboard.ts` (`compareEntries`).
+- Test suite: every SPEC scoring rule covered (see scoring.test.ts), 495-row annex
+  invariants + 15 PDF-pinned rows, knockout walk-through, lock boundary conditions.
+- TODO for a later stage: once the real qualified-thirds combination is known
+  (group stage ends June 27), add a test pinning the REAL combination's annex row, per
+  the stage-2 prompt.
+
 ### Stage 1 — June 12, 2026
 - Repo `emberworks-lab/wc26-predictor` (PUBLIC), main branch, CI green (lint/typecheck/test).
 - Next.js 15 + TS + Tailwind v4 + next-intl (en/uk, `localePrefix: always`, `src/proxy.ts`).
@@ -67,4 +102,7 @@
 
 ## Known issues / deviations from SPEC
 
-- none yet
+- Stage 2: SPEC's original group-tiebreaker order was wrong vs the official FIFA
+  regulations (overall GD before head-to-head). Fixed in SPEC.md + implemented per
+  Article 13 (head-to-head first); see Decisions. Not a runtime issue — recorded here
+  because the SPEC text changed.
