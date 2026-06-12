@@ -4,9 +4,9 @@
 
 ## Current status
 
-- **Stage 1 in progress** (this session). Done so far: repo, Next.js scaffold, schema +
-  RLS applied to remote Supabase, i18n (en/uk) + stadium-night theme + landing, CI workflow.
-  Remaining: Vercel project + env vars + verified deploy.
+- **Stage 1 COMPLETE.** Next up: Stage 2 (`prompts/stage-2-engines.md`) and/or Stage 4
+  (`prompts/stage-4-auth-shell.md`, parallel branch).
+- Live URL: **https://wc26-predictor-gilt.vercel.app** (en + uk verified). CI green.
 
 ## Decisions
 
@@ -43,15 +43,27 @@
 |---|---|
 | GitHub | ✅ `gh` authed as `achontoroh` (repo, workflow scopes) |
 | Supabase | ✅ MCP access to org Emberworks Lab (`kjrrdcebvoepffmaqxgq`) — can create project, run migrations, deploy edge functions |
-| Vercel | ❌ no CLI, no token — user must create token → `.secrets/vercel_token` |
-| Football API | ❌ user registers at https://www.football-data.org/client/register → token to `.env.local` as `FOOTBALL_API_KEY` |
+| Vercel | ✅ token in `.secrets/vercel_token`; project `prj_jPTbl9jkwCv2qVLo3VwIKPcLx8Dg` linked to repo, env vars set (SUPABASE_URL, ANON_KEY, FOOTBALL_API_KEY) |
+| Football API | ✅ key in `.env.local` + Vercel env as `FOOTBALL_API_KEY` (verified against /v4/competitions/WC) |
+| Supabase service role key | ❌ NOT yet set anywhere — Stage 3 must fetch it (dashboard → project settings → API) and add to Vercel env + Edge Function secrets |
 | Google OAuth | ❌ needed in Stage 4 — user creates OAuth client in Google Cloud Console; redirect URI will be `https://<supabase-project-ref>.supabase.co/auth/v1/callback` (exact value known after Stage 1) |
 
 ## Stage log
 
-### Stage 0 — <date>
+### Stage 1 — June 12, 2026
+- Repo `emberworks-lab/wc26-predictor` (PUBLIC), main branch, CI green (lint/typecheck/test).
+- Next.js 15 + TS + Tailwind v4 + next-intl (en/uk, `localePrefix: always`, `src/proxy.ts`).
+- Supabase `ejiuelstlbncfaljthfr`: 4 migrations applied (core_schema, functions_triggers,
+  rls_policies, security_hardening); RLS on all 15 tables; TS types in src/lib/database.types.ts.
+- Vercel project linked, env vars set, production deploy verified:
+  https://wc26-predictor-gilt.vercel.app (`wc26-predictor.vercel.app` was taken).
+- Landing page + theme tokens + language switcher live in both locales.
+- NOT done in Stage 1 (deferred as planned): seed data (Stage 3), auth (Stage 4),
+  service-role key in env (Stage 3).
+
+### Stage 0 — June 12, 2026
 - Authored SPEC.md, PLAN.md, STATE.md, prompts/stage-1..8.
-- (fill in: API decision, checklist confirmations)
+- football-data.org chosen + key verified; GitHub/Supabase/Vercel access confirmed.
 
 ## Known issues / deviations from SPEC
 
