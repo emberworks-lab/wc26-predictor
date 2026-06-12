@@ -151,6 +151,11 @@
   live tables (Article 13 h2h tiebreak visible), thirds, full bracket walk to a
   champion, downstream-invalidation toast, hardcore steppers persisting scores,
   Groups challenge stopping at thirds. Post-merge re-verified on the deployed URL.
+- **Follow-up fix (same day)**: `saveBracket` for a hardcore entry excludes
+  scoreless rows from the upsert AND protects them from the snapshot delete —
+  bracket rows saved while casual (pre-flip) stay as-is until progressively
+  scored; without this, any bracket edit after a casual→hardcore flip failed
+  wholesale on the "hardcore requires a score" trigger. Verified live.
 - **DEVIATION from the stage-5 prompt (orchestration)**: state machine AND UI written
   by the orchestrator directly instead of delegating UI to Sonnet subagents — single
   session had full context; correctness-critical pieces stayed under one review.

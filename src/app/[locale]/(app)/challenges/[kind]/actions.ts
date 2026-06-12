@@ -20,28 +20,31 @@ export type SaveResult = { ok: true } | { ok: false; code: "locked" | "invalid" 
 const failureCode = (pgCode: string | undefined): "locked" | "invalid" | "error" =>
   pgCode === "42501" ? "locked" : pgCode === "P0001" || pgCode?.startsWith("23") ? "invalid" : "error";
 
-/** The challenge lock state behind an entry, via the public challenges row. */
-async function entryChallengeLocked(
+/** Lock state + hardcore flag behind an entry, via the public rows. */
+async function entryState(
   supabase: Awaited<ReturnType<typeof createClient>>,
   entryId: string,
-): Promise<boolean | null> {
+): Promise<{ locked: boolean; hardcore: boolean } | null> {
   const { data } = await supabase
     .from("challenge_entries")
-    .select("id, challenges (id, kind, opens_at, locks_at, manual_override)")
+    .select("id, hardcore, challenges (id, kind, opens_at, locks_at, manual_override)")
     .eq("id", entryId)
     .maybeSingle();
   const c = data?.challenges;
   if (!c) return null;
-  return isChallengeLocked(
-    toChallengeLockState({
-      id: c.id,
-      kind: c.kind,
-      opensAt: c.opens_at,
-      locksAt: c.locks_at,
-      manualOverride: c.manual_override,
-    }),
-    new Date(),
-  );
+  return {
+    hardcore: data!.hardcore,
+    locked: isChallengeLocked(
+      toChallengeLockState({
+        id: c.id,
+        kind: c.kind,
+        opensAt: c.opens_at,
+        locksAt: c.locks_at,
+        manualOverride: c.manual_override,
+      }),
+      new Date(),
+    ),
+  };
 }
 
 export async function saveMatchPrediction(input: {
@@ -66,17 +69,17 @@ export async function saveMatchPrediction(input: {
 
   const supabase = await createClient();
 
-  const [{ data: match }, locked] = await Promise.all([
+  const [{ data: match }, state] = await Promise.all([
     supabase
       .from("matches")
       .select("id, kickoff_utc, status")
       .eq("id", matchId)
       .maybeSingle(),
-    entryChallengeLocked(supabase, entryId),
+    entryState(supabase, entryId),
   ]);
-  if (!match || locked === null) return { ok: false, code: "invalid" };
+  if (!match || state === null) return { ok: false, code: "invalid" };
   if (
-    locked ||
+    state.locked ||
     isMatchLocked({ kickoffUtc: match.kickoff_utc }, new Date()) ||
     !(EDITABLE_MATCH_STATUSES as readonly string[]).includes(match.status)
   ) {
@@ -140,9 +143,17 @@ export async function saveBracket(input: {
   }
 
   const supabase = await createClient();
-  const locked = await entryChallengeLocked(supabase, entryId);
-  if (locked === null) return { ok: false, code: "invalid" };
-  if (locked) return { ok: false, code: "locked" };
+  const state = await entryState(supabase, entryId);
+  if (state === null) return { ok: false, code: "invalid" };
+  if (state.locked) return { ok: false, code: "locked" };
+
+  // Casual→hardcore flip: bracket rows saved while casual have no scores, and
+  // the DB trigger rejects scoreless hardcore writes. Those rows stay AS-IS
+  // (excluded from the upsert, protected from deletion) until the user scores
+  // them progressively; only scored rows are written.
+  const writable = state.hardcore
+    ? picks.filter((p) => p.homeScore != null && p.awayScore != null)
+    : picks;
 
   const { data: existing, error: readErr } = await supabase
     .from("bracket_predictions")
@@ -162,9 +173,9 @@ export async function saveBracket(input: {
     if (error) return { ok: false, code: failureCode(error.code) };
   }
 
-  if (picks.length > 0) {
+  if (writable.length > 0) {
     const { error } = await supabase.from("bracket_predictions").upsert(
-      picks.map((p) => ({
+      writable.map((p) => ({
         entry_id: entryId,
         generation: 0,
         slot: p.slot,
