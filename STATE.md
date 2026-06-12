@@ -4,20 +4,22 @@
 
 ## Current status
 
-- **Stage 7 COMPLETE in code** (Fun challenge form, Playoff flow, redistribution
-  mechanic + UI + integration tests) — but **TWO MANUAL PROD STEPS remain**,
-  blocked by session permissions, needed BEFORE the group stage ends (~June 27):
-  1. **Apply migration 8 to prod** (`supabase/migrations/20260612000008_redistribution.sql`
-     — `redistribute_entry()` RPC + `can_edit_bracket` round-F fix). Until then the
-     redistribute CTA (which only appears once groups complete) would fail server-side.
-     Command: `supabase db push --linked` or apply via the Supabase MCP.
-  2. **Redeploy the sync Edge Function** (source refactored into
-     `src/lib/sync/recompute.ts` + engine now rounds multiplied points to 1 decimal —
-     deployed bundle still computes 6×0.6 = 3.5999…; only visible once redistribution
-     multipliers exist). Command: `node scripts/bundle-sync.mjs`, then from a temp
-     workdir holding `.build/sync/index.ts` as `supabase/functions/sync/index.ts`:
-     `supabase functions deploy sync --project-ref ejiuelstlbncfaljthfr --no-verify-jwt`.
-  Fun + Playoff need NEITHER step — they run entirely on the Stage 1 schema.
+- **Stage 7 COMPLETE — code AND prod.** The two manual prod steps were applied
+  Jun 12:
+  1. **Migration 8 applied to prod** as remote version `20260612110000`
+     (`redistribute_entry()` RPC + `ko_stage_index`/`ko_round_start` +
+     `can_edit_bracket` round-F fix). Prod's migration history uses
+     MCP-timestamp version names, so plain `supabase db push --linked` fails on
+     history drift — applied via a temp workdir mirroring the remote history
+     (stub files for the 7 applied versions + migration 8 renamed past the
+     remote head). RPC verified live (bogus call returns the function's own
+     "redistribute: not your entry").
+  2. **Sync Edge Function redeployed** from a fresh `scripts/bundle-sync.mjs`
+     bundle (refactored `src/lib/sync/recompute.ts` + 1-decimal rounding) via
+     `supabase functions deploy sync --use-api` from a temp workdir (`--use-api`
+     skips the Docker bundler, which can't see /tmp). Manual
+     `?mode=recompute` after deploy: `sync_log` id 50 `status=ok`
+     (entries 2, rows 0).
 - Next up: Stage 8 (`prompts/stage-8-admin-ship.md`).
 - Live URL: **https://wc26-predictor-gilt.vercel.app** (en + uk verified). CI green.
 
@@ -193,8 +195,8 @@
 
 ### Stage 7 — June 12, 2026
 - Branch `stage/7-playoff-fun-redistribution` → PR → merged. 154 unit tests green
-  (was 150). Migration 8 written + proven on the local stack; **prod application +
-  sync-function redeploy pending** (see Current status — session permissions).
+  (was 150). Migration 8 written + proven on the local stack; prod application +
+  sync-function redeploy done in a follow-up session Jun 12 (see Current status).
 - **Fun challenge** (`/challenges/fun`, ship-critical before the Jun 18 lock):
   autosave form over `fun_questions` (numeric input + steppers, Golden Ball/Boot
   player picker with suggestion dropdown, yes/no segmented buttons), per-question
