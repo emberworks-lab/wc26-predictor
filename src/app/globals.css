@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/* ─── Stadium-night design tokens ─────────────────────────────────────────── */
+:root {
+  /* Pitch dark backgrounds */
+  --color-pitch-950: #070b16;
+  --color-pitch-900: #0a0f1e;
+  --color-pitch-800: #111a30;
+  --color-pitch-700: #1a2742;
+
+  /* Gold accent */
+  --color-gold-400: #e7c662;
+  --color-gold-500: #d4af37;
+  --color-gold-600: #b8962e;
+
+  /* Text */
+  --color-text-primary: #f2f4f8;
+  --color-text-muted: #93a0b8;
+
+  /* Status */
+  --color-success: #34d399;
+  --color-danger: #f87171;
+}
+
+@theme inline {
+  /* Map to Tailwind utility classes */
+  --color-pitch-950: var(--color-pitch-950);
+  --color-pitch-900: var(--color-pitch-900);
+  --color-pitch-800: var(--color-pitch-800);
+  --color-pitch-700: var(--color-pitch-700);
+
+  --color-gold-400: var(--color-gold-400);
+  --color-gold-500: var(--color-gold-500);
+  --color-gold-600: var(--color-gold-600);
+
+  --color-text-primary: var(--color-text-primary);
+  --color-text-muted: var(--color-text-muted);
+
+  --color-success: var(--color-success);
+  --color-danger: var(--color-danger);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* ─── Base styles ──────────────────────────────────────────────────────────── */
+body {
+  background-color: var(--color-pitch-950);
+  color: var(--color-text-primary);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
