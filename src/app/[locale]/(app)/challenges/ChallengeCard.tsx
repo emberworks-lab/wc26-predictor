@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import Countdown from "@/components/Countdown";
 import KickoffTime from "@/components/KickoffTime";
 import { isChallengeOpen } from "@/engine/locks";
+import { Link } from "@/i18n/navigation";
 
 import { joinChallenge, setHardcore } from "./actions";
 
@@ -108,30 +109,40 @@ export default async function ChallengeCard({
       )}
 
       {entry ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-pitch-700 bg-pitch-900 px-4 py-3">
-          <span className="text-sm font-semibold text-success">
-            {t("joined")}
-            {entry.hardcore && (
-              <span className="ml-2 rounded-full bg-gold-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-gold-400">
-                {t("hardcoreBadge")}
-              </span>
+        <div className="flex flex-col gap-3 rounded-xl border border-pitch-700 bg-pitch-900 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-success">
+              {t("joined")}
+              {entry.hardcore && (
+                <span className="ml-2 rounded-full bg-gold-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-gold-400">
+                  {t("hardcoreBadge")}
+                </span>
+              )}
+            </span>
+            {status === "open" && (
+              <form action={setHardcore}>
+                <input type="hidden" name="entryId" value={entry.id} />
+                <input
+                  type="hidden"
+                  name="hardcore"
+                  value={entry.hardcore ? "false" : "true"}
+                />
+                <button
+                  type="submit"
+                  className="text-xs font-medium text-text-muted underline-offset-2 transition-colors hover:text-gold-400 hover:underline"
+                >
+                  {entry.hardcore ? t("hardcoreOff") : t("hardcoreOn")}
+                </button>
+              </form>
             )}
-          </span>
-          {status === "open" && (
-            <form action={setHardcore}>
-              <input type="hidden" name="entryId" value={entry.id} />
-              <input
-                type="hidden"
-                name="hardcore"
-                value={entry.hardcore ? "false" : "true"}
-              />
-              <button
-                type="submit"
-                className="text-xs font-medium text-text-muted underline-offset-2 transition-colors hover:text-gold-400 hover:underline"
-              >
-                {entry.hardcore ? t("hardcoreOff") : t("hardcoreOn")}
-              </button>
-            </form>
+          </div>
+          {(challenge.kind === "full" || challenge.kind === "groups") && (
+            <Link
+              href={`/challenges/${challenge.kind}`}
+              className="self-start rounded-full bg-gold-500 px-5 py-2 text-xs font-semibold text-pitch-950 transition-colors hover:bg-gold-400"
+            >
+              {status === "open" ? t("predict") : t("viewPredictions")}
+            </Link>
           )}
         </div>
       ) : status === "open" ? (

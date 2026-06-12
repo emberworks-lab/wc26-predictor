@@ -4,12 +4,29 @@
 
 ## Current status
 
-- **Stage 3 + Stage 4 COMPLETE** (data layer + auth/app shell), built on one branch
-  `stage/3-4-data-auth`, one PR. Next up: Stage 5 (`prompts/stage-5-predictions.md`).
+- **Stage 5 COMPLETE** (Full + Groups prediction flows: group wizard, live predicted
+  tables, thirds ranking, personal R32 bracket picker, locking UX, RLS proof).
+  Branch `stage/5-predictions` → PR → merged. Next up: Stage 6
+  (`prompts/stage-6-leaderboards-live.md`).
 - Live URL: **https://wc26-predictor-gilt.vercel.app** (en + uk verified). CI green.
 
 ## Decisions
 
+- **Late-joiner derived-table fallback (Stage 5, SPEC updated in same commit)**:
+  `computePredictedGroups` in `engine/scoring.ts` falls back to the REAL result of a
+  FINISHED match when a prediction is missing (and to the stored outcome when a hardcore
+  prediction has no scores — the casual→hardcore-flip-on-locked-match case). Rationale:
+  the opener finished before launch, so without the fallback no real user could ever
+  complete group A → no thirds, no qualifier points, no derived R32 for the Full bracket.
+  Match-outcome points and hardcore score bonuses still require a stored prediction.
+  Tested in `scoring.lateJoiner.test.ts`; UI derives through the same exported helpers
+  (`src/lib/predictions/derive.ts`), so wizard tables and scoring can never diverge.
+- **Prediction persistence contract (Stage 5)**: `match_predictions` upserted per match
+  via server action (`saveMatchPrediction`) — casual sends `outcome`, hardcore sends
+  scores (DB trigger derives outcome; never trusts the client). Bracket gen-0 is saved
+  as a FULL SNAPSHOT (`saveBracket`): slots missing from the snapshot are deleted —
+  that's how downstream picks invalidated by an upstream change get purged. Engine
+  `TeamId` = `fifa_code`, engine match id = `String(matches.id)` (sync convention).
 - **Knockout FIFA match numbers are resolved lazily, not guessed from kickoff order**:
   the provider sends knockout fixtures unnumbered with null teams. `matches.fifa_match_number`
   (73–104, the engine/bracket key) is filled by `src/lib/sync/knockoutSlots.ts` —
@@ -94,6 +111,51 @@
 | Google OAuth | ✅ fully configured server-side: OAuth client created (Google Cloud `wc26-predictor`), Supabase Google provider enabled via `supabase config push` (see supabase/config.toml), consent screen published to production, site_url + redirect URLs set. Credentials in `.secrets/google_oauth`. Stage 4 builds the UI/flow only |
 
 ## Stage log
+
+### Stage 5 — June 12, 2026
+- Branch `stage/5-predictions` → PR → merged. 150 unit tests green (was 131).
+- **Engine extension** (see Decisions): late-joiner real-result fallback +
+  hardcore-flip outcome fallback in `computePredictedGroups` / `predictedOutcome`;
+  `predictionAsPlayedMatch` + `predictedOutcome` now exported for UI reuse.
+  SPEC.md "Deadlines & locking" gained the derived-table clarification.
+- **Shared derivation layer** `src/lib/predictions/` (types.ts + derive.ts, unit-tested):
+  DTO↔engine adapters, `deriveGroups` (live tables → thirds → personal R32 via
+  `buildR32`), `deriveBracket` (`simulateBracket`), `staleSlots` (downstream-invalidation
+  detection; a hardcore draw awaiting its advancer is NOT stale), `bracketSnapshot`
+  (gen-0 persistence rows = only fully resolved slots).
+- **Routes**: `/[locale]/challenges/[kind]` (kind ∈ full|groups; others redirect).
+  Challenge cards link "Make predictions" / "View predictions" for full+groups.
+- **PredictionFlow** (client state machine): optimistic autosave with latest-wins
+  sequencing + rollback on RLS rejection (per-match debounce 500ms, bracket 800ms full
+  snapshot); server-clock offset (UI lock moments match RLS); resume at first group
+  needing attention; A–L chips + 3rd-place + bracket nav; progress x/72; countdown
+  banner; read-only mode when the challenge locks. Group-pred edits that reshape the
+  R32 auto-clear newly-stale bracket picks with a toast; stale-on-load is flagged
+  visually and purged on first edit (never silently kept).
+- **Group wizard**: W/D/L segmented buttons (casual) or score steppers (hardcore;
+  outcome derived); locked matches render real result + "No pick — 0 pts" badge;
+  flipped casual→hardcore predictions show "Add an exact score"; live predicted table
+  with top-2/3rd qualification cut per group.
+- **Thirds + bracket**: bestThirds ranking screen (8 IN / 4 OUT); bracket as
+  round-tabbed list (R32→Finals incl. third-place match), casual tap-winner +
+  AET/pens flag, hardcore 90' steppers + draw advancer chips; champion/third-place
+  summary card.
+- **RLS proof** `scripts/rls-check.ts` (extends the stage-4 pattern; 14 checks, ALL
+  PASS against prod): kicked-off write refused, unlocked predictions invisible to
+  others, locked readable, locked not updatable by owner, cross-entry forgery refused,
+  hardcore trigger enforcement (scores required, outcome derived server-side), casual
+  scores stripped, bracket gen rules (gen-1 without redistribution refused, winner ∉
+  pairing refused).
+- **UI verified** on local dev against prod DB (session-cookie injection, mobile
+  viewport, en + uk): 72-match flow with the 2 real finished group-A matches locked,
+  live tables (Article 13 h2h tiebreak visible), thirds, full bracket walk to a
+  champion, downstream-invalidation toast, hardcore steppers persisting scores,
+  Groups challenge stopping at thirds. Post-merge re-verified on the deployed URL.
+- **DEVIATION from the stage-5 prompt (orchestration)**: state machine AND UI written
+  by the orchestrator directly instead of delegating UI to Sonnet subagents — single
+  session had full context; correctness-critical pieces stayed under one review.
+- NOT in this stage (per plan): leaderboard wiring of `entry_stats`/points UI (Stage 6),
+  Playoff + Fun flows and redistribution (Stage 7).
 
 ### Stage 4 — June 12, 2026
 - Same branch/PR as Stage 3 (`stage/3-4-data-auth`).
