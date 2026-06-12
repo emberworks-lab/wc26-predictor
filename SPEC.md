@@ -22,10 +22,15 @@ Never cut: auth, Full challenge, scoring correctness, deadlines/locking, leaderb
 - Third-place teams are assigned to specific R32 slots via FIFA's official annex
   (one row per combination of 8 qualifying groups out of 12 — C(12,8) = 495 combinations).
   This mapping MUST be a pure, unit-tested function backed by the official FIFA table.
-- Group tiebreakers (in order): points → goal difference → goals scored → head-to-head
-  (points, GD, goals among tied teams) → fair play points → drawing of lots (we model as
-  deterministic fallback: FIFA ranking seed, documented).
-- "Best 8 thirds" ranking: points → GD → goals scored → fair play → drawing of lots (same fallback).
+- Group tiebreakers (in order, per FIFA WC26 Regulations Article 13 — note: head-to-head
+  comes FIRST, unlike previous World Cups): points → head-to-head among the tied teams
+  (points, GD, goals scored — re-applied recursively to a still-tied shrinking subset) →
+  overall goal difference → overall goals scored → team conduct score (cards: yellow −1,
+  indirect red −3, direct red −4, yellow+direct red −5) → FIFA World Ranking.
+  No drawing of lots exists in the official rules; the engine adds a lexicographic TeamId
+  fallback purely as a determinism guard when ranking data is absent.
+- "Best 8 thirds" ranking (Article 13): points → GD → goals scored → team conduct score →
+  FIFA World Ranking (same deterministic fallback).
 
 ## Challenges (4)
 

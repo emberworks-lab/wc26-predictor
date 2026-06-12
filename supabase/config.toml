@@ -1,0 +1,16 @@
+# Remote auth config — pushed with `supabase config push`.
+# Secret values are substituted from env at push time, never committed.
+
+project_id = "ejiuelstlbncfaljthfr"
+
+[auth]
+site_url = "https://wc26-predictor-gilt.vercel.app"
+additional_redirect_urls = [
+  "http://localhost:3000",
+  "https://wc26-predictor-gilt.vercel.app",
+]
+
+[auth.external.google]
+enabled = true
+client_id = "319997861525-fd69jv947qalloidet5cb5d0e0ff5o2v.apps.googleusercontent.com"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
