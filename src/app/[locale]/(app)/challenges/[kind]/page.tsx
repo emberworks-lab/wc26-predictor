@@ -11,13 +11,25 @@ import type {
 import { createClient } from "@/lib/supabase/server";
 
 import PredictionFlow from "./PredictionFlow";
+import RedistributionPanel, {
+  type RealKoResultDTO,
+  type RedistributionDTO,
+} from "./RedistributionPanel";
+import type { RedistributionStage } from "./actions";
 
 const PREDICTABLE_KINDS = ["full", "groups"] as const;
 type PredictableKind = (typeof PREDICTABLE_KINDS)[number];
 
+/** Playoff `opens_at` far-future sentinel = "group stage not finished yet". */
+const isOpensSentinel = (opensAt: string | null) =>
+  opensAt != null && new Date(opensAt).getFullYear() > 2900;
+
 /**
- * Prediction flow entry for the Full / Groups challenges. Requires a joined
- * entry (join happens on the challenges home); Playoff/Fun land in Stage 7.
+ * Prediction flow entry for the Full / Groups challenges (Playoff and Fun
+ * have their own static routes). Requires a joined entry (join happens on
+ * the challenges home). Once the group stage completes (signalled by the
+ * sync job opening the Playoff challenge), the Full page additionally
+ * shows the knockout redistribution panel over the real bracket.
  */
 export default async function PredictPage({
   params,
@@ -122,16 +134,138 @@ export default async function PredictPage({
     manualOverride: challenge!.manual_override,
   };
 
+  // --- redistribution (Full, group stage complete) ---------------------------
+  // "Groups complete" = the sync job opened the Playoff challenge (same run
+  // resolves the real R32 slot pairings, so the real bracket is available).
+  let redistribution: {
+    redistributions: RedistributionDTO[];
+    realKo: RealKoResultDTO[];
+    roundStarts: Partial<Record<RedistributionStage, string | null>>;
+    genBracket: BracketPickDTO[];
+  } | null = null;
+
+  if (kind === "full") {
+    const { data: playoff } = await supabase
+      .from("challenges")
+      .select("opens_at")
+      .eq("kind", "playoff")
+      .single();
+    const groupsComplete =
+      playoff?.opens_at != null &&
+      !isOpensSentinel(playoff.opens_at) &&
+      new Date(playoff.opens_at) <= new Date();
+
+    if (groupsComplete) {
+      const [{ data: redistRows }, { data: koMatches }] = await Promise.all([
+        supabase
+          .from("redistributions")
+          .select("generation, stage, multiplier")
+          .eq("entry_id", entry!.id)
+          .order("generation"),
+        supabase
+          .from("matches")
+          .select(
+            "stage, fifa_match_number, kickoff_utc, status, home_team_id, away_team_id, home_score, away_score, home_score_et, away_score_et, home_pens, away_pens, winner_team_id",
+          )
+          .neq("stage", "group")
+          .not("fifa_match_number", "is", null),
+      ]);
+
+      const redistributions: RedistributionDTO[] = (redistRows ?? []).map((r) => ({
+        generation: r.generation,
+        stage: r.stage as RedistributionStage,
+        multiplier: Number(r.multiplier),
+      }));
+
+      const maxGen = redistributions.length
+        ? redistributions[redistributions.length - 1].generation
+        : 0;
+      const { data: genRows } =
+        maxGen > 0
+          ? await supabase
+              .from("bracket_predictions")
+              .select(
+                "slot, home_team_id, away_team_id, winner_team_id, home_score, away_score, aet_pens",
+              )
+              .eq("entry_id", entry!.id)
+              .eq("generation", maxGen)
+          : { data: [] as never[] };
+
+      const realKo: RealKoResultDTO[] = (koMatches ?? []).map((m) => {
+        const finished = m.status === "finished" || m.status === "awarded";
+        return {
+          slot: m.fifa_match_number!,
+          homeTeamId: m.home_team_id,
+          awayTeamId: m.away_team_id,
+          winnerTeamId: finished ? m.winner_team_id : null,
+          homeScore90: finished ? m.home_score : null,
+          awayScore90: finished ? m.away_score : null,
+          homeScoreEt: finished ? m.home_score_et : null,
+          awayScoreEt: finished ? m.away_score_et : null,
+          homePens: finished ? m.home_pens : null,
+          awayPens: finished ? m.away_pens : null,
+          finished,
+        };
+      });
+
+      // First kickoff per redistribution stage's ROUND (the engine's final
+      // round F includes the third-place match — same rule as the DB).
+      const roundOfStage = (stage: string): RedistributionStage | null =>
+        stage === "third_place" || stage === "final"
+          ? "final"
+          : stage === "r32" || stage === "r16" || stage === "qf" || stage === "sf"
+            ? (stage as RedistributionStage)
+            : null;
+      const roundStarts: Partial<Record<RedistributionStage, string | null>> = {};
+      for (const m of koMatches ?? []) {
+        const r = roundOfStage(m.stage);
+        if (!r) continue;
+        const current = roundStarts[r];
+        if (current == null || m.kickoff_utc < current) roundStarts[r] = m.kickoff_utc;
+      }
+
+      redistribution = {
+        redistributions,
+        realKo,
+        roundStarts,
+        genBracket: (genRows ?? []).map((b) => ({
+          slot: b.slot,
+          homeTeamId: b.home_team_id,
+          awayTeamId: b.away_team_id,
+          winnerTeamId: b.winner_team_id,
+          homeScore: b.home_score,
+          awayScore: b.away_score,
+          aetPens: b.aet_pens,
+        })),
+      };
+    }
+  }
+
+  const serverNow = new Date().toISOString();
+
   return (
-    <PredictionFlow
-      challengeKind={kind as PredictableKind}
-      entry={{ id: entry!.id, hardcore: entry!.hardcore }}
-      challenge={challengeDTO}
-      teams={teamDTOs}
-      matches={matchDTOs}
-      initialPredictions={predictionDTOs}
-      initialBracket={bracketDTOs}
-      serverNow={new Date().toISOString()}
-    />
+    <div className="flex flex-col gap-4">
+      {redistribution && (
+        <RedistributionPanel
+          entry={{ id: entry!.id, hardcore: entry!.hardcore }}
+          redistributions={redistribution.redistributions}
+          realKo={redistribution.realKo}
+          roundStarts={redistribution.roundStarts}
+          genBracket={redistribution.genBracket}
+          teams={teamDTOs}
+          serverNow={serverNow}
+        />
+      )}
+      <PredictionFlow
+        challengeKind={kind as PredictableKind}
+        entry={{ id: entry!.id, hardcore: entry!.hardcore }}
+        challenge={challengeDTO}
+        teams={teamDTOs}
+        matches={matchDTOs}
+        initialPredictions={predictionDTOs}
+        initialBracket={bracketDTOs}
+        serverNow={serverNow}
+      />
+    </div>
   );
 }

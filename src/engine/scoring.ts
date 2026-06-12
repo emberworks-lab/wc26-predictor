@@ -579,7 +579,10 @@ function scoreEntry(
       ref,
       basePoints,
       multiplier,
-      points: basePoints * multiplier,
+      // Multipliers have exactly one decimal (1, 0.7 … 0.3), bases are
+      // integers — round to one decimal so 6 × 0.6 lands as 3.6, not
+      // 3.5999999999999996 (the rows are persisted verbatim as numerics).
+      points: Math.round(basePoints * multiplier * 10) / 10,
     });
   };
 

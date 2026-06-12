@@ -92,6 +92,7 @@ function MatchCard({
   isStale,
   hardcore,
   readOnly,
+  locked,
   resultText,
   resultsMode,
   index,
@@ -102,6 +103,8 @@ function MatchCard({
   isStale: boolean;
   hardcore: boolean;
   readOnly: boolean;
+  /** Slot-level lock: a fixed real result inside an editable bracket. */
+  locked?: boolean;
   resultText?: string;
   resultsMode?: boolean;
   index: TeamIndex;
@@ -110,7 +113,7 @@ function MatchCard({
   const t = useTranslations("Predict.bracket");
   const slot = match.matchNumber;
   const pairingKnown = match.home !== undefined && match.away !== undefined;
-  const disabled = readOnly || !pairingKnown;
+  const disabled = readOnly || !pairingKnown || locked === true;
 
   const label =
     slot === THIRD_PLACE_MATCH
@@ -246,7 +249,7 @@ function MatchCard({
               <input
                 type="checkbox"
                 checked={pick?.aetPens ?? false}
-                disabled={readOnly}
+                disabled={disabled}
                 onChange={toggleAet}
                 className="accent-[#d4af37]"
               />
@@ -270,6 +273,7 @@ export default function BracketView({
   onCommit,
   mode = "predict",
   results,
+  lockedSlots,
 }: {
   sim: SimulatedBracket | undefined;
   bracket: ReadonlyMap<number, LocalPick>;
@@ -283,6 +287,8 @@ export default function BracketView({
   mode?: "predict" | "results";
   /** Result strings per slot, shown on the match card (results mode). */
   results?: ReadonlyMap<number, string>;
+  /** Slots fixed to real results inside an otherwise editable bracket (Stage 7). */
+  lockedSlots?: ReadonlySet<number>;
 }) {
   const t = useTranslations("Predict.bracket");
   const tp = useTranslations("Predict");
@@ -353,6 +359,7 @@ export default function BracketView({
             isStale={staleSet.has(m.matchNumber)}
             hardcore={hardcore}
             readOnly={readOnly}
+            locked={lockedSlots?.has(m.matchNumber)}
             resultText={results?.get(m.matchNumber)}
             resultsMode={mode === "results"}
             index={index}

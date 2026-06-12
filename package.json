@@ -9,7 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "verify:stage7": "tsx scripts/verify-stage7.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

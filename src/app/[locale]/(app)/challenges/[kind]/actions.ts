@@ -1,7 +1,7 @@
 "use server";
 
-import { isChallengeLocked, isMatchLocked } from "@/engine/locks";
-import { toChallengeLockState } from "@/lib/predictions/derive";
+import { isMatchLocked } from "@/engine/locks";
+import { entryState, failureCode, type SaveResult } from "@/lib/predictions/entryLock";
 import { EDITABLE_MATCH_STATUSES } from "@/lib/predictions/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,37 +15,7 @@ import { createClient } from "@/lib/supabase/server";
  * owns the working state — a router refresh per save would fight it.
  */
 
-export type SaveResult = { ok: true } | { ok: false; code: "locked" | "invalid" | "error" };
-
-const failureCode = (pgCode: string | undefined): "locked" | "invalid" | "error" =>
-  pgCode === "42501" ? "locked" : pgCode === "P0001" || pgCode?.startsWith("23") ? "invalid" : "error";
-
-/** Lock state + hardcore flag behind an entry, via the public rows. */
-async function entryState(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  entryId: string,
-): Promise<{ locked: boolean; hardcore: boolean } | null> {
-  const { data } = await supabase
-    .from("challenge_entries")
-    .select("id, hardcore, challenges (id, kind, opens_at, locks_at, manual_override)")
-    .eq("id", entryId)
-    .maybeSingle();
-  const c = data?.challenges;
-  if (!c) return null;
-  return {
-    hardcore: data!.hardcore,
-    locked: isChallengeLocked(
-      toChallengeLockState({
-        id: c.id,
-        kind: c.kind,
-        opensAt: c.opens_at,
-        locksAt: c.locks_at,
-        manualOverride: c.manual_override,
-      }),
-      new Date(),
-    ),
-  };
-}
+export type { SaveResult };
 
 export async function saveMatchPrediction(input: {
   entryId: string;
@@ -114,18 +84,42 @@ export interface BracketRowInput {
   aetPens: boolean | null;
 }
 
+type DbKoStage = "r32" | "r16" | "qf" | "sf" | "third_place" | "final";
+
+/** Knockout round of a redistribution stage: DB `match_stage` values it spans. */
+const ROUND_STAGES: Record<string, DbKoStage[]> = {
+  r32: ["r32"],
+  r16: ["r16"],
+  qf: ["qf"],
+  sf: ["sf"],
+  // The engine's final round includes the third-place match, played first.
+  final: ["third_place", "final"],
+};
+
 /**
- * Replaces the entry's generation-0 bracket with exactly `picks`: slots
+ * Replaces one bracket generation of the entry with exactly `picks`: slots
  * missing from the snapshot are deleted (downstream picks invalidated by an
  * upstream change), present ones upserted. Not transactional (PostgREST);
  * a mid-way failure is healed by the next autosave snapshot.
+ *
+ * Generation 0 (the default) is editable until the challenge locks; a
+ * redistribution generation (Stage 7) until its stage's round kicks off —
+ * both mirrored from the DB's can_edit_bracket, which is the enforcement.
  */
 export async function saveBracket(input: {
   entryId: string;
   picks: BracketRowInput[];
+  generation?: number;
 }): Promise<SaveResult> {
-  const { entryId, picks } = input;
-  if (!entryId || !Array.isArray(picks) || picks.length > 32) {
+  const { entryId, picks, generation = 0 } = input;
+  if (
+    !entryId ||
+    !Array.isArray(picks) ||
+    picks.length > 32 ||
+    !Number.isInteger(generation) ||
+    generation < 0 ||
+    generation > 5
+  ) {
     return { ok: false, code: "invalid" };
   }
   const slots = new Set<number>();
@@ -145,7 +139,28 @@ export async function saveBracket(input: {
   const supabase = await createClient();
   const state = await entryState(supabase, entryId);
   if (state === null) return { ok: false, code: "invalid" };
-  if (state.locked) return { ok: false, code: "locked" };
+  if (generation === 0) {
+    if (state.locked) return { ok: false, code: "locked" };
+  } else {
+    // A redistribution generation: exists for this entry, round not started.
+    const { data: redist } = await supabase
+      .from("redistributions")
+      .select("stage")
+      .eq("entry_id", entryId)
+      .eq("generation", generation)
+      .maybeSingle();
+    if (!redist) return { ok: false, code: "invalid" };
+    const { data: first } = await supabase
+      .from("matches")
+      .select("kickoff_utc")
+      .in("stage", ROUND_STAGES[redist.stage] ?? [])
+      .order("kickoff_utc")
+      .limit(1)
+      .maybeSingle();
+    if (!first || Date.now() >= Date.parse(first.kickoff_utc)) {
+      return { ok: false, code: "locked" };
+    }
+  }
 
   // Casual→hardcore flip: bracket rows saved while casual have no scores, and
   // the DB trigger rejects scoreless hardcore writes. Those rows stay AS-IS
@@ -159,7 +174,7 @@ export async function saveBracket(input: {
     .from("bracket_predictions")
     .select("slot")
     .eq("entry_id", entryId)
-    .eq("generation", 0);
+    .eq("generation", generation);
   if (readErr) return { ok: false, code: failureCode(readErr.code) };
 
   const toDelete = (existing ?? []).map((r) => r.slot).filter((s) => !slots.has(s));
@@ -168,7 +183,7 @@ export async function saveBracket(input: {
       .from("bracket_predictions")
       .delete()
       .eq("entry_id", entryId)
-      .eq("generation", 0)
+      .eq("generation", generation)
       .in("slot", toDelete);
     if (error) return { ok: false, code: failureCode(error.code) };
   }
@@ -177,7 +192,7 @@ export async function saveBracket(input: {
     const { error } = await supabase.from("bracket_predictions").upsert(
       writable.map((p) => ({
         entry_id: entryId,
-        generation: 0,
+        generation,
         slot: p.slot,
         home_team_id: p.homeTeamId,
         away_team_id: p.awayTeamId,
@@ -192,4 +207,47 @@ export async function saveBracket(input: {
   }
 
   return { ok: true };
+}
+
+export type RedistributeResult =
+  | { ok: true; generation: number }
+  | { ok: false; code: "rejected" | "error" };
+
+export type RedistributionStage = "r32" | "r16" | "qf" | "sf" | "final";
+
+const REDISTRIBUTION_STAGES: readonly RedistributionStage[] = [
+  "r32",
+  "r16",
+  "qf",
+  "sf",
+  "final",
+];
+
+/**
+ * Knockout redistribution (SPEC → "Knockout redistribution"). All validation
+ * and the atomic insert (log row + real-result prefill of the new bracket
+ * generation) live in the DB function `redistribute_entry`, which runs as
+ * the calling user — this wrapper only shapes the result.
+ */
+export async function redistribute(input: {
+  entryId: string;
+  stage: RedistributionStage;
+}): Promise<RedistributeResult> {
+  const { entryId, stage } = input;
+  if (!entryId || !REDISTRIBUTION_STAGES.includes(stage)) {
+    return { ok: false, code: "rejected" };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("redistribute_entry", {
+    p_entry_id: entryId,
+    p_stage: stage,
+  });
+  if (error) {
+    // P0001 = a validation raise inside redistribute_entry; 23xxx = the
+    // unique (entry, stage) / (entry, generation) guards under concurrency.
+    const rejected = error.code === "P0001" || error.code?.startsWith("23");
+    return { ok: false, code: rejected ? "rejected" : "error" };
+  }
+  return { ok: true, generation: data as number };
 }
