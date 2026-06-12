@@ -105,7 +105,79 @@
     "joinHardcore": "Join in hardcore mode (exact scores)",
     "join": "Join",
     "lockedHint": "This challenge is locked — predictions are frozen.",
-    "playoffJoinHint": "Come back once the group stage is done."
+    "playoffJoinHint": "Come back once the group stage is done.",
+    "predict": "Make predictions",
+    "viewPredictions": "View predictions"
+  },
+  "Predict": {
+    "titles": {
+      "full": "Full Tournament",
+      "groups": "Groups Only"
+    },
+    "lockedBanner": "Predictions are locked — this is a read-only view of your picks.",
+    "locksIn": "Predictions lock",
+    "progress": "{done} / {total} picks",
+    "saveError": "Couldn't save — tap your pick again to retry.",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "nav": {
+      "groupsLabel": "Groups",
+      "thirds": "3rd place",
+      "bracket": "Bracket"
+    },
+    "group": {
+      "title": "Group {group}",
+      "draw": "Draw",
+      "lockedNoPick": "No pick — 0 pts",
+      "locked": "Locked",
+      "needsScore": "Add an exact score",
+      "ft": "FT",
+      "live": "In play",
+      "tableTitle": "Your predicted table",
+      "legendTop2": "Top 2 advance",
+      "legendThird": "3rd place — best 8 advance"
+    },
+    "thirds": {
+      "title": "Third-place ranking",
+      "subtitle": "Your 12 predicted third-placed teams, ranked by points, goal difference and goals scored — the best 8 reach the Round of 32.",
+      "qualifies": "In",
+      "out": "Out",
+      "cta": "Build your bracket",
+      "groupsDone": "Group predictions complete — that's everything for this challenge. 🏁",
+      "incomplete": "Predict all 12 groups to resolve the third-place ranking.",
+      "missing": "{count, plural, =1 {1 group is} other {# groups are}} still incomplete"
+    },
+    "bracket": {
+      "rounds": {
+        "R32": "R32",
+        "R16": "R16",
+        "QF": "QF",
+        "SF": "SF",
+        "F": "Finals"
+      },
+      "roundsLong": {
+        "R32": "Round of 32",
+        "R16": "Round of 16",
+        "QF": "Quarter-finals",
+        "SF": "Semi-finals",
+        "F": "Finals"
+      },
+      "match": "Match {number}",
+      "thirdPlaceMatch": "Third-place match",
+      "finalMatch": "Final",
+      "tbd": "Winner unknown",
+      "pickHint": "Tap a team to send it through.",
+      "scoreHint": "Set the 90-minute score — on a draw, pick who advances.",
+      "advancerPrompt": "Who advances?",
+      "aet": "Extra time / penalties",
+      "staleCleared": "{count, plural, =1 {1 downstream pick was} other {# downstream picks were}} cleared — that team no longer reaches there.",
+      "staleOnLoad": "{count, plural, =1 {1 saved pick no longer matches} other {# saved picks no longer match}} your current group tables — re-pick the highlighted matches.",
+      "picksLeft": "{count, plural, =1 {1 pick left} other {# picks left}}",
+      "complete": "Bracket complete",
+      "champion": "Your champion",
+      "thirdPlace": "Third place",
+      "needsGroups": "Your Round of 32 derives from your predicted group tables — finish all 12 groups first."
+    }
   },
   "Countdown": {
     "prefix": "{remaining} left",

@@ -90,6 +90,10 @@ Picks: exact = 15 pts, else 0. Yes/no: 5 pts.
 - **Full, Groups, Fun**: open for joining/editing until **kickoff of the LAST first-round
   group match** (end of matchday 1). HOWEVER any individual match that has already kicked
   off is locked for everyone — late joiners simply score 0 on those matches.
+  - Derived-table clarification (Stage 5): for predicted group tables → thirds → personal
+    R32 derivation, a missing prediction on a FINISHED match falls back to the real result
+    (public info, equal for everyone — no cheat vector). Match-outcome points and hardcore
+    score bonuses still require an actual stored prediction.
 - **Playoff**: opens when the group stage is complete (last group match finished),
   locks at the first R32 kickoff.
 - Knockout picks inside Full: editable until the Full challenge lock (same matchday-1

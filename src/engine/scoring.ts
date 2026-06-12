@@ -26,7 +26,16 @@
  * Engine decisions documented here (not spelled out in SPEC):
  *  - Outcome-only group predictions are normalised to synthetic scores
  *    (1:0 / 0:0 / 0:1) so predicted tables can run the real tiebreaker
- *    engine; hardcore predictions use their exact scores.
+ *    engine; hardcore predictions use their exact scores. A hardcore
+ *    prediction without scores (made while casual, match locked before the
+ *    flip) falls back to its stored outcome — for the synthetic table AND
+ *    the outcome point — but earns no hardcore score bonus.
+ *  - Late joiners: a match that kicked off before a user joined can never be
+ *    predicted. For TABLE DERIVATION ONLY (predicted tables → thirds →
+ *    personal R32) a missing prediction on a FINISHED real match falls back
+ *    to the real result — public information, equal for everyone, so no
+ *    cheating vector. Match-outcome points still require a stored
+ *    prediction (SPEC: "late joiners simply score 0 on those matches").
  *  - A bracket version's pairings are derived purely from data: the original
  *    Full bracket walks the user's predicted groups → R32 → knockout graph;
  *    Playoff brackets and redistribution versions sit on the real bracket
@@ -329,14 +338,18 @@ function digestReal(real: RealResults): RealDigest {
 // Predicted group tables
 // ---------------------------------------------------------------------------
 
-/** Normalises a prediction to a synthetic played match for table purposes. */
-function predictionAsPlayedMatch(
+/**
+ * Normalises a prediction to a synthetic played match for table purposes.
+ * Hardcore scores win; otherwise the stored outcome becomes a synthetic
+ * 1:0 / 0:0 / 0:1 (covers casual entries AND hardcore entries whose
+ * prediction predates a casual→hardcore flip on a locked match).
+ */
+export function predictionAsPlayedMatch(
   def: GroupMatchDef,
   pred: GroupMatchPrediction,
   hardcore: boolean,
 ): PlayedMatch | undefined {
-  if (hardcore) {
-    if (pred.homeGoals === undefined || pred.awayGoals === undefined) return undefined;
+  if (hardcore && pred.homeGoals !== undefined && pred.awayGoals !== undefined) {
     return {
       home: def.home,
       away: def.away,
@@ -350,15 +363,24 @@ function predictionAsPlayedMatch(
   return { home: def.home, away: def.away, homeGoals, awayGoals };
 }
 
-function predictedOutcome(
+export function predictedOutcome(
   pred: GroupMatchPrediction,
   hardcore: boolean,
 ): MatchOutcome | undefined {
-  if (hardcore) {
-    if (pred.homeGoals === undefined || pred.awayGoals === undefined) return undefined;
+  if (hardcore && pred.homeGoals !== undefined && pred.awayGoals !== undefined) {
     return outcomeOf(pred.homeGoals, pred.awayGoals);
   }
   return pred.outcome;
+}
+
+/**
+ * Table-derivation fallback for a match the user has no usable prediction
+ * for: the REAL result, if the match is finished. Late joiners (and flipped
+ * entries) keep complete predicted tables; gaps on unplayed matches stay open.
+ */
+function realResultAsPlayedMatch(def: GroupMatchDef): PlayedMatch | undefined {
+  if (def.homeGoals === undefined || def.awayGoals === undefined) return undefined;
+  return { home: def.home, away: def.away, homeGoals: def.homeGoals, awayGoals: def.awayGoals };
 }
 
 interface PredictedGroups {
@@ -393,7 +415,9 @@ function computePredictedGroups(
     const predicted: PlayedMatch[] = [];
     for (const def of defs) {
       const pred = predById.get(def.id);
-      const asMatch = pred && predictionAsPlayedMatch(def, pred, entry.hardcore);
+      const asMatch =
+        (pred && predictionAsPlayedMatch(def, pred, entry.hardcore)) ??
+        realResultAsPlayedMatch(def);
       if (asMatch) predicted.push(asMatch);
     }
     if (teams.length !== 4 || predicted.length !== 6) {
