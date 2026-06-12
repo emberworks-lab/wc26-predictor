@@ -4,13 +4,38 @@
 
 ## Current status
 
-- **Stage 2 COMPLETE** (pure domain engines in `src/engine/`, exhaustively unit-tested).
-  Next up: Stage 3 (`prompts/stage-3-data-sync.md`) and/or Stage 4
-  (`prompts/stage-4-auth-shell.md`, parallel branch).
+- **Stage 3 COMPLETE** (data layer: API client, seed, sync/recompute Edge Function,
+  pg_cron). Stage 4 in progress in the same session, branch `stage/3-4-data-auth`
+  (one PR for both stages).
 - Live URL: **https://wc26-predictor-gilt.vercel.app** (en + uk verified). CI green.
 
 ## Decisions
 
+- **Knockout FIFA match numbers are resolved lazily, not guessed from kickoff order**:
+  the provider sends knockout fixtures unnumbered with null teams. `matches.fifa_match_number`
+  (73–104, the engine/bracket key) is filled by `src/lib/sync/knockoutSlots.ts` —
+  once groups complete, `buildR32` over the real tables gives each number's pairing;
+  later rounds resolve from `KO_GRAPH` feeds. Pairs match unordered (provider home/away
+  orientation kept; scoring uses advancers only). Unit-tested incl. full-tournament fixed point.
+- **Sync Edge Function is esbuild-bundled before deploy** (`scripts/bundle-sync.mjs` →
+  `.build/sync/index.ts`): the pure engines use extensionless TS imports Deno can't resolve.
+  Source lives in `supabase/functions/sync/index.ts` (excluded from tsc/eslint); deploy =
+  bundle + `supabase functions deploy sync --no-verify-jwt` from a temp workdir (see script header).
+  Function auth = `x-sync-secret` header (secret in Vault `sync_secret`, Supabase function
+  secrets, Vercel env, `.env.local`); deployed with verify_jwt OFF so pg_net can call it.
+- **Playoff `opens_at` sentinel `2999-01-01Z`** = "not open yet"; the sync function flips it
+  to `now()` the moment all 72 group matches are finished (mirrors the engine's +infinity
+  convention in `locks.ts`). Seed never claws back an already-opened playoff.
+- **provider status flapping**: football-data.org's match list flaps between SCHEDULED and
+  TIMED for unstarted matches; sync treats the two as equal in its change detection.
+- **`standings_cache` is engine-computed** (Article 13 tiebreakers), never copied from the
+  API's standings endpoint. Conduct/FIFA-ranking tiebreak inputs aren't available on the free
+  tier; the engine's deterministic fallback covers it (documented engine-only rule).
+- **Stage 3 schema additions** (migration 5): `entry_stats` (tiebreaker counters per entry),
+  `replace_entry_points(uuid, jsonb, jsonb)` RPC (atomic delete+insert per entry, service-role
+  only), `leaderboard_totals` view (security invoker), `invoke_sync(text)` + 3 pg_cron jobs.
+  Leaderboard rank-movement snapshots (`leaderboard_snapshots`) are NOT yet written by
+  recompute — deferred to Stage 6 (needs a matchday-boundary policy).
 - **Group tiebreakers follow the official FIFA WC26 Regulations Article 13, which differ
   from the original SPEC draft**: head-to-head among tied teams comes FIRST (then overall
   GD, overall goals, conduct score, FIFA World Ranking — no drawing of lots at all).
@@ -64,11 +89,39 @@
 | GitHub | ✅ `gh` authed as `achontoroh` (repo, workflow scopes) |
 | Supabase | ✅ MCP access to org Emberworks Lab (`kjrrdcebvoepffmaqxgq`) — can create project, run migrations, deploy edge functions |
 | Vercel | ✅ token in `.secrets/vercel_token`; project `prj_jPTbl9jkwCv2qVLo3VwIKPcLx8Dg` linked to repo, env vars set (SUPABASE_URL, ANON_KEY, FOOTBALL_API_KEY) |
-| Football API | ✅ key in `.env.local` + Vercel env as `FOOTBALL_API_KEY` (verified against /v4/competitions/WC) |
-| Supabase service role key | ❌ NOT yet set anywhere — Stage 3 must fetch it (dashboard → project settings → API) and add to Vercel env + Edge Function secrets |
-| Google OAuth | ⏳ user is creating an OAuth client (Google Cloud project `wc26-predictor`, Web application, redirect URI `https://ejiuelstlbncfaljthfr.supabase.co/auth/v1/callback`, consent screen published to production). Stage 4: read credentials from `.secrets/google_oauth` (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET lines); if the file is missing, ship magic-link only per the stage prompt |
+| Football API | ✅ key in `.env.local` + Vercel env + Supabase function secret as `FOOTBALL_API_KEY` |
+| Supabase service role key | ✅ in `.env.local` + Vercel env (prod+preview) as `SUPABASE_SERVICE_ROLE_KEY`; auto-injected into Edge Functions |
+| Sync shared secret | ✅ `SYNC_SECRET` in `.env.local` + Vercel env + Supabase function secrets + Vault (`sync_secret`) |
+| Google OAuth | ✅ fully configured server-side: OAuth client created (Google Cloud `wc26-predictor`), Supabase Google provider enabled via `supabase config push` (see supabase/config.toml), consent screen published to production, site_url + redirect URLs set. Credentials in `.secrets/google_oauth`. Stage 4 builds the UI/flow only |
 
 ## Stage log
+
+### Stage 3 — June 12, 2026
+- Branch `stage/3-4-data-auth` (shared with Stage 4, one PR for both).
+- **API client** `src/lib/football-api/` (types, polite client with 429/5xx backoff +
+  6.5s spacing, mappers, flag-emoji table for all 48 TLAs) — mappers unit-tested against
+  recorded JSON fixtures (`fixtures/*.sample.json`) + synthetic ET/pens shape.
+- **Seed** `pnpm seed` (`scripts/seed.ts`, idempotent, verified twice): 48 teams /
+  12 groups / 104 matches in prod, opener seeded finished (MEX 2–0 RSA, matches reality);
+  Full/Groups/Fun lock `2026-06-18T02:00Z` (last matchday-1 kickoff), Playoff locks
+  `2026-06-28T19:00Z` (first R32 kickoff); 12 fun questions with SPEC tolerances.
+- **Edge Function `sync`** (deployed, verify_jwt off, `x-sync-secret` auth):
+  `mode=fixtures` (diff upsert, KO slot resolution, engine standings cache, playoff flip,
+  inline recompute on changes), `mode=stats` (scorers + standings cache), `mode=recompute`
+  (full idempotent points rebuild via `engine/scoring.computePoints`, atomic per entry via
+  `replace_entry_points` RPC, also rewrites `entry_stats`). Every run logs to `sync_log`.
+  Manual runs of all 3 modes verified OK; 401 without secret; fixtures stable at
+  `changed:0` on re-run; recompute idempotent (0 entries — points checksum identical;
+  re-verify with real entries in Stage 5).
+- **pg_cron** (migration 5): `wc26_sync_fixtures_fast` */15 within 14:00–06:00 UTC during
+  Jun 11–Jul 21, `wc26_sync_fixtures_hourly` at :05 outside the window, `wc26_sync_stats`
+  4×/day. Verified end-to-end via `select invoke_sync('fixtures')` → pg_net → function →
+  `sync_log` ok row. **API budget: worst case ≈76 calls/day** (64 fast + 8 hourly + 4 stats),
+  1 provider call per run, vs 10 req/min free-tier limit, no daily cap — ample headroom.
+  Quota status: ~15 calls used today (seed + manual verification).
+- DB types regenerated (`src/lib/database.types.ts` now includes entry_stats,
+  leaderboard_totals, RPCs).
+- Post-tournament cleanup TODO: `cron.unschedule` the three jobs after July 19.
 
 ### Stage 2 — June 12, 2026
 - Branch `stage/2-engines` → PR → merged to main. All pure TypeScript under `src/engine/`

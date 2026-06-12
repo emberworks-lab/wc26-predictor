@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Deno code — typechecked/deployed by the Supabase toolchain, not this project.
+    "supabase/functions/**",
+    // esbuild output of the sync Edge Function (scripts/bundle-sync.mjs).
+    ".build/**",
   ]),
 ]);
 

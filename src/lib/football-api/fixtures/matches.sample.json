@@ -1,0 +1,150 @@
+{
+  "resultSet": {
+    "count": 104,
+    "first": "2026-06-11",
+    "last": "2026-07-19",
+    "played": 1
+  },
+  "matches": [
+    {
+      "id": 537327,
+      "utcDate": "2026-06-11T19:00:00Z",
+      "status": "FINISHED",
+      "matchday": 1,
+      "stage": "GROUP_STAGE",
+      "group": "GROUP_A",
+      "lastUpdated": "2026-06-12T00:21:43Z",
+      "homeTeam": {
+        "id": 769,
+        "name": "Mexico",
+        "shortName": "Mexico",
+        "tla": "MEX",
+        "crest": "https://crests.football-data.org/769.svg"
+      },
+      "awayTeam": {
+        "id": 774,
+        "name": "South Africa",
+        "shortName": "South Africa",
+        "tla": "RSA",
+        "crest": "https://crests.football-data.org/9396.svg"
+      },
+      "score": {
+        "winner": "HOME_TEAM",
+        "duration": "REGULAR",
+        "fullTime": {
+          "home": 2,
+          "away": 0
+        },
+        "halfTime": {
+          "home": 1,
+          "away": 0
+        }
+      }
+    },
+    {
+      "id": 537328,
+      "utcDate": "2026-06-12T02:00:00Z",
+      "status": "TIMED",
+      "matchday": 1,
+      "stage": "GROUP_STAGE",
+      "group": "GROUP_A",
+      "lastUpdated": "2026-06-12T00:52:26Z",
+      "homeTeam": {
+        "id": 772,
+        "name": "South Korea",
+        "shortName": "Korea Republic",
+        "tla": "KOR",
+        "crest": "https://crests.football-data.org/772.png"
+      },
+      "awayTeam": {
+        "id": 798,
+        "name": "Czechia",
+        "shortName": "Czechia",
+        "tla": "CZE",
+        "crest": "https://crests.football-data.org/798.svg"
+      },
+      "score": {
+        "winner": null,
+        "duration": "REGULAR",
+        "fullTime": {
+          "home": null,
+          "away": null
+        },
+        "halfTime": {
+          "home": null,
+          "away": null
+        }
+      }
+    },
+    {
+      "id": 537417,
+      "utcDate": "2026-06-28T19:00:00Z",
+      "status": "TIMED",
+      "matchday": null,
+      "stage": "LAST_32",
+      "group": null,
+      "lastUpdated": "2026-06-11T00:20:16Z",
+      "homeTeam": {
+        "id": null,
+        "name": null,
+        "shortName": null,
+        "tla": null,
+        "crest": null
+      },
+      "awayTeam": {
+        "id": null,
+        "name": null,
+        "shortName": null,
+        "tla": null,
+        "crest": null
+      },
+      "score": {
+        "winner": null,
+        "duration": "REGULAR",
+        "fullTime": {
+          "home": null,
+          "away": null
+        },
+        "halfTime": {
+          "home": null,
+          "away": null
+        }
+      }
+    },
+    {
+      "id": 537390,
+      "utcDate": "2026-07-19T19:00:00Z",
+      "status": "TIMED",
+      "matchday": null,
+      "stage": "FINAL",
+      "group": null,
+      "lastUpdated": "2026-06-11T00:20:16Z",
+      "homeTeam": {
+        "id": null,
+        "name": null,
+        "shortName": null,
+        "tla": null,
+        "crest": null
+      },
+      "awayTeam": {
+        "id": null,
+        "name": null,
+        "shortName": null,
+        "tla": null,
+        "crest": null
+      },
+      "score": {
+        "winner": null,
+        "duration": "REGULAR",
+        "fullTime": {
+          "home": null,
+          "away": null
+        },
+        "halfTime": {
+          "home": null,
+          "away": null
+        }
+      }
+    }
+  ]
+}
