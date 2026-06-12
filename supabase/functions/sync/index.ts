@@ -593,6 +593,10 @@ async function runRecompute(supabase: Supabase) {
     totalRows += rows.length;
   }
 
+  // Leaderboard rank snapshots are NOT written here: a DB trigger on sync_log
+  // (migration 7) calls write_leaderboard_snapshots() when this run's log row
+  // flips to 'ok' — after the recompute above, so ranks are always fresh.
+
   return { entries: entries.length, rows: totalRows };
 }
 

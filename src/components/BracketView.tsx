@@ -92,6 +92,8 @@ function MatchCard({
   isStale,
   hardcore,
   readOnly,
+  resultText,
+  resultsMode,
   index,
   onCommit,
 }: {
@@ -100,6 +102,8 @@ function MatchCard({
   isStale: boolean;
   hardcore: boolean;
   readOnly: boolean;
+  resultText?: string;
+  resultsMode?: boolean;
   index: TeamIndex;
   onCommit: Commit;
 }) {
@@ -160,6 +164,11 @@ function MatchCard({
     >
       <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-text-muted">
         <span>{label}</span>
+        {resultText && (
+          <span className="font-mono text-xs font-bold normal-case tracking-normal text-gold-400">
+            {resultText}
+          </span>
+        )}
         {isStale && <span className="font-semibold text-gold-400">{t("advancerPrompt")}</span>}
       </div>
 
@@ -232,7 +241,7 @@ function MatchCard({
               index={index}
             />
           </div>
-          {winnerCode !== undefined && (
+          {winnerCode !== undefined && !resultsMode && (
             <label className="flex cursor-pointer items-center gap-2 text-[11px] text-text-muted">
               <input
                 type="checkbox"
@@ -259,6 +268,8 @@ export default function BracketView({
   saveStatus,
   index,
   onCommit,
+  mode = "predict",
+  results,
 }: {
   sim: SimulatedBracket | undefined;
   bracket: ReadonlyMap<number, LocalPick>;
@@ -268,6 +279,10 @@ export default function BracketView({
   saveStatus: "idle" | "saving" | "error";
   index: TeamIndex;
   onCommit: Commit;
+  /** "results": render real outcomes — no pick affordances, no progress copy. */
+  mode?: "predict" | "results";
+  /** Result strings per slot, shown on the match card (results mode). */
+  results?: ReadonlyMap<number, string>;
 }) {
   const t = useTranslations("Predict.bracket");
   const tp = useTranslations("Predict");
@@ -305,15 +320,17 @@ export default function BracketView({
             </button>
           ))}
         </div>
-        <span className="text-[11px] font-semibold text-text-muted">
-          {saveStatus === "saving"
-            ? tp("saving")
-            : saveStatus === "error"
-              ? tp("saveError")
-              : picksLeft > 0
-                ? t("picksLeft", { count: picksLeft })
-                : t("complete")}
-        </span>
+        {mode === "predict" && (
+          <span className="text-[11px] font-semibold text-text-muted">
+            {saveStatus === "saving"
+              ? tp("saving")
+              : saveStatus === "error"
+                ? tp("saveError")
+                : picksLeft > 0
+                  ? t("picksLeft", { count: picksLeft })
+                  : t("complete")}
+          </span>
+        )}
       </div>
 
       {stale.length > 0 && (
@@ -322,7 +339,9 @@ export default function BracketView({
         </p>
       )}
 
-      <p className="text-[11px] text-text-muted">{hardcore ? t("scoreHint") : t("pickHint")}</p>
+      {mode === "predict" && (
+        <p className="text-[11px] text-text-muted">{hardcore ? t("scoreHint") : t("pickHint")}</p>
+      )}
 
       <h2 className="text-lg font-bold">{t(`roundsLong.${round}`)}</h2>
       <ul className="flex flex-col gap-2">
@@ -334,6 +353,8 @@ export default function BracketView({
             isStale={staleSet.has(m.matchNumber)}
             hardcore={hardcore}
             readOnly={readOnly}
+            resultText={results?.get(m.matchNumber)}
+            resultsMode={mode === "results"}
             index={index}
             onCommit={onCommit}
           />

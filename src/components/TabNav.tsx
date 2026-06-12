@@ -28,6 +28,7 @@ export default function TabNav() {
             <li key={tab.key} className="flex-1 md:flex-none">
               <Link
                 href={tab.href}
+                prefetch
                 aria-current={isActive ? "page" : undefined}
                 className={[
                   "flex flex-col items-center gap-0.5 px-3 py-2 text-[11px] font-medium transition-colors md:flex-row md:gap-2 md:py-3 md:text-sm",

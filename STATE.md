@@ -4,14 +4,40 @@
 
 ## Current status
 
-- **Stage 5 COMPLETE** (Full + Groups prediction flows: group wizard, live predicted
-  tables, thirds ranking, personal R32 bracket picker, locking UX, RLS proof).
-  Branch `stage/5-predictions` → PR → merged. Next up: Stage 6
-  (`prompts/stage-6-leaderboards-live.md`).
+- **Stage 6 COMPLETE** (leaderboards global/hardcore/overall with rank movement,
+  matchday-boundary snapshots, public live Tournament tab, profile pages with
+  predictions-vs-reality + per-rule breakdown, stage-9 quick wins #1/#2).
+  Branch `stage/6-leaderboards-live` → PR → merged. Next up: Stage 7
+  (`prompts/stage-7-playoff-fun-redistribution.md`).
 - Live URL: **https://wc26-predictor-gilt.vercel.app** (en + uk verified). CI green.
 
 ## Decisions
 
+- **Leaderboard "registration" tiebreaker = `profiles.created_at`** (Stage 6): SPEC's
+  "earlier registration (created_at)" is read as ACCOUNT registration, not challenge-entry
+  creation — one consistent instant per user across per-challenge and overall boards.
+  Implemented in migration 6's ranked views (`leaderboard_entry_rows`,
+  `leaderboard_ranked`, `leaderboard_overall_ranked`); parity with
+  `engine/leaderboard.compareEntries` proven by `scripts/verify-stage6.ts` on an
+  equal-points fixture exercising every tier of the chain. Full ties share a rank
+  (SQL `rank()` ≡ comparator returning 0).
+- **Matchday snapshot policy (Stage 6, migration 6+7)**: a "matchday" is the football
+  night `(kickoff_utc - 6h)::date` (kickoffs 14:00→05:59 UTC group together, matching
+  the cron match window); it is COMPLETE when every match on or before it is settled
+  (`finished/awarded/cancelled/postponed`; suspended/in-play block).
+  `write_leaderboard_snapshots()` writes one snapshot set (per-challenge + overall ×
+  global/hardcore, keyed `matchday_date`, unique index `nulls not distinct`) per
+  completed matchday, idempotently; `p_matchday` override exists for backfills/tests.
+  **Wired via DB trigger on `sync_log`** (status→'ok', kind fixtures/recompute) instead
+  of inside the Edge Function — fires after the inline recompute by construction, needs
+  no function redeploy (the deployed sync function is unchanged since Stage 3/5).
+  UI movement baseline = newest snapshot OLDER than the matchday of the most recent
+  finished match (`src/lib/leaderboards.ts`) — arrows keep showing last night's movement
+  through the idle morning instead of resetting at the boundary snapshot.
+- **Tournament tab is public** (Stage 6, per SPEC "read-only real data"): lives in route
+  group `(public)` — same Header/TabNav shell as `(app)` but no auth redirect.
+- **Scorers: assists column kept** — football-data.org free-tier scorers DOES return
+  assists (non-null values observed in `scorers_cache` June 12); nulls render as "—".
 - **Late-joiner derived-table fallback (Stage 5, SPEC updated in same commit)**:
   `computePredictedGroups` in `engine/scoring.ts` falls back to the REAL result of a
   FINISHED match when a prediction is missing (and to the stored outcome when a hardcore
@@ -111,6 +137,57 @@
 | Google OAuth | ✅ fully configured server-side: OAuth client created (Google Cloud `wc26-predictor`), Supabase Google provider enabled via `supabase config push` (see supabase/config.toml), consent screen published to production, site_url + redirect URLs set. Credentials in `.secrets/google_oauth`. Stage 4 builds the UI/flow only |
 
 ## Stage log
+
+### Stage 6 — June 12, 2026
+- Branch `stage/6-leaderboards-live` → PR → merged. 150 unit tests still green
+  (stage adds SQL views + read-only UI; correctness proofs run against prod via script).
+- **Migration 6** (`leaderboards`): `leaderboard_entry_rows` (extends Stage 3's
+  `leaderboard_totals` with profiles + entry_stats), `leaderboard_ranked`
+  (per-challenge global/hardcore boards, SPEC tiebreaker chain in rank() ORDER BY),
+  `leaderboard_overall_ranked` (per-user sums; hardcore board = users with ≥1 hardcore
+  entry), `leaderboard_snapshots.matchday_date` column + unique index,
+  `write_leaderboard_snapshots(p_matchday default null)`.
+  **Migration 7** (`snapshot_trigger`): `sync_log` AFTER UPDATE trigger calls the
+  snapshot function on every successful fixtures/recompute run (see Decisions).
+- **`scripts/verify-stage6.ts`** (16 checks, ALL PASS against prod, cleans up after
+  itself): SQL order == engine compareEntries on a 5-way equal-points fixture (each
+  tier decides one pair incl. registration time); snapshot idempotency (dup run = 0
+  rows, auto-mode skips done matchday); rank movement vs baseline after a points
+  change; hand-computed totals through the REAL recompute (casual 3/0, hardcore 6/7 —
+  expectations in the script, premises guarded); hardcore board excludes casual
+  entries; overall mirrors per-challenge for single-entry users; **recompute
+  idempotency with real entries present (deferred Stage 3 item — points checksum
+  identical across two runs)**.
+- **Leaderboards UI** `/[locale]/leaderboards?c=&b=`: challenge tabs + Overall,
+  Global/🔥Hardcore switch, rows = rank / ▲▼ movement (NEW badge for unseeded) /
+  name / tiebreaker stat line / points; current user highlighted + pinned "your
+  position" card; rows link to `/profile/[userId]`.
+- **Tournament tab** `/[locale]/tournament?t=` (PUBLIC — moved to `(public)` route
+  group): Groups (standings_cache tables, top-2 cut line + dashed thirds line),
+  Matches (all 104 grouped by matchday night, scores/FT, pulsing live dot for
+  in_play/paused, kickoff via KickoffTime in local tz), Scorers (goals/assists/pens,
+  top 30), Bracket (placeholder until R32 pairings resolve; then `RealBracket` =
+  Stage 5 `BracketView` in new read-only `mode="results"` with per-slot result
+  strings incl. AET/pens). `BracketView` moved to `src/components/` (shared).
+- **Profile pages**: shared `ProfileView` (RLS-scoped through the viewer's client) —
+  per-entry rank+points chips (global & hardcore), per-rule point breakdown in SPEC
+  table order, predictions-vs-results for kicked-off matches with ✓/✗, champion pick,
+  redistribution badge; own page (`/profile`) adds it under the account card;
+  `/profile/[userId]` is the public view (redirects to /profile for self, 404 unknown).
+  Verified live: another user's not-yet-locked predictions are invisible (17 hidden),
+  own always visible.
+- **Stage-9 quick wins** shipped: #1 pointer cursor (globals.css base layer, verified
+  computed style), #2 loading.tsx skeletons for all top-level routes + tab-bar
+  `prefetch` (marked ✅ in `prompts/stage-9-improvements.md`; caching/fan-out reduction
+  left open).
+- **UI verified** on local dev against prod DB (mobile viewport, en + uk, zero console
+  errors) with throwaway users (session-cookie injection pattern): boards, movement
+  arrows after a controlled rank change, hardcore filtering, profile breakdowns, public
+  tournament signed-out. Re-verified on the deployed URL post-merge; all throwaway
+  users/snapshots removed (cleanup verified by count).
+- DB types regenerated (`database.types.ts`: new views, matchday_date, RPC).
+- NOT in this stage (per plan): Playoff + Fun flows, redistribution UI (Stage 7);
+  admin area (Stage 8); fun answers display on profile becomes meaningful with Stage 7.
 
 ### Stage 5 — June 12, 2026
 - Branch `stage/5-predictions` → PR → merged. 150 unit tests green (was 131).

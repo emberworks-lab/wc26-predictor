@@ -10,22 +10,6 @@
 
 ## Backlog
 
-### 1. Pointer cursor missing on clickable elements — `open` · small
-*2026-06-13, manual testing after Stage 5.*
-Hovering buttons/clickable cards does not show the pointer (finger) cursor.
-Likely root cause: Tailwind v4 preflight changed `button` default to `cursor: default`.
-Fix candidate: base-layer CSS in `globals.css` (`button:not(:disabled), [role="button"]:not([aria-disabled="true"]) { cursor: pointer; }`)
-plus an audit of clickable divs/cards that should be real buttons anyway.
-
-### 2. Tab/page switching feels slow (Tournament ↔ Challenges ↔ etc.) — `open` · medium
-*2026-06-13, manual testing after Stage 5.*
-Navigation between main sections takes noticeably long.
-Investigate: every nav is an RSC roundtrip with fresh DB queries and no visual feedback.
-Fix candidates (in order of bang-for-buck): `loading.tsx` skeletons for every top-level
-route (instant visual response), `<Link prefetch>` on the tab bar, caching/`revalidate`
-for public read-only data (tournament tab, challenge cards), reducing per-page query
-fan-out. Measure before/after on a mobile viewport.
-
 ### 3. Copy predictions as a template across challenges — `open` · large
 *2026-06-13, feature idea after Stage 5.*
 A user who completed the Full Tournament challenge should be able to one-click copy those
@@ -46,4 +30,17 @@ Design notes:
 
 ## Done
 
-(nothing yet)
+### 1. Pointer cursor missing on clickable elements — ✅ Stage 6 PR
+*2026-06-13, manual testing after Stage 5. Fixed 2026-06-12 (Stage 6 session).*
+Root cause confirmed: Tailwind v4 preflight sets `button { cursor: default }`. Fixed with
+the proposed base-layer rule in `globals.css`
+(`button:not(:disabled), [role="button"]:not([aria-disabled="true"]) { cursor: pointer; }`);
+verified computed `cursor: pointer` in the browser.
+
+### 2. Tab/page switching feels slow — ✅ Stage 6 PR (skeletons + prefetch)
+*2026-06-13, manual testing after Stage 5. Fixed 2026-06-12 (Stage 6 session).*
+Shipped the two top bang-for-buck candidates: `loading.tsx` skeletons (shared
+`<Skeleton>`) for every top-level route (challenges, challenges/[kind], tournament,
+leaderboards, profile, profile/[userId]) → instant visual response on nav; explicit
+`prefetch` on the tab-bar links. Remaining candidates (revalidate caching for public
+read-only data, query fan-out reduction) stay open for Stage 9 if still felt.
