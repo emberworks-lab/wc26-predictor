@@ -26,21 +26,24 @@ update fun_questions set ranges = '[[null,5],[6,6],[7,7],[8,8],[9,null]]'::jsonb
 
 -- Grandfather any existing free-number answers into their containing bucket
 -- (keep the number as the hardcore exact value). No-op when there are none.
+-- Correlated subquery in SET (UPDATE..FROM can't expose the target to LATERAL).
 update fun_answers fa
-set range_index = b.idx
-from fun_questions q
-cross join lateral (
-  select (ord - 1)::integer as idx
-  from jsonb_array_elements(q.ranges) with ordinality as r(bucket, ord)
-  where (r.bucket->>0 is null or fa.numeric_answer >= (r.bucket->>0)::numeric)
+set range_index = (
+  select (r.ord - 1)::integer
+  from fun_questions q
+  cross join lateral jsonb_array_elements(q.ranges) with ordinality as r(bucket, ord)
+  where q.id = fa.question_id
+    and q.ranges is not null
+    and (r.bucket->>0 is null or fa.numeric_answer >= (r.bucket->>0)::numeric)
     and (r.bucket->>1 is null or fa.numeric_answer <= (r.bucket->>1)::numeric)
-  order by ord
+  order by r.ord
   limit 1
-) b
-where fa.question_id = q.id
-  and q.ranges is not null
-  and fa.numeric_answer is not null
-  and fa.range_index is null;
+)
+where fa.numeric_answer is not null
+  and fa.range_index is null
+  and exists (
+    select 1 from fun_questions q where q.id = fa.question_id and q.ranges is not null
+  );
 
 -- Validation: ranged numeric requires a valid range_index (exact number is
 -- optional); legacy non-ranged numeric still requires a number.
