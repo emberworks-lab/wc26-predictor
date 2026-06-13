@@ -1,4 +1,3 @@
-import { Flame } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import type { GroupId } from "@/engine/types";
@@ -199,8 +198,7 @@ export default async function ProfileView({
               <h3 className="flex items-center gap-2 text-sm font-bold">
                 {tc(`${kind}.title`)}
                 {entry.hardcore && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-gold-500/15 px-2 py-0.5 text-[10px] font-semibold text-gold-400">
-                    <Flame className="size-3" aria-hidden="true" />
+                  <span className="rounded-full bg-gold-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gold-400">
                     {t("hardcore")}
                   </span>
                 )}
@@ -216,7 +214,7 @@ export default async function ProfileView({
                 )}
                 {hardcoreRank && (
                   <span className="inline-flex items-center gap-1 text-xs">
-                    <Flame className="size-3 text-gold-400" aria-hidden="true" />
+                    <span className="font-semibold text-gold-400">{t("hardcore")}</span>
                     <span className="text-text-muted">#{Number(hardcoreRank.rank)}</span>{" "}
                     <span className="font-bold text-gold-400">{Number(hardcoreRank.points)}</span>
                   </span>

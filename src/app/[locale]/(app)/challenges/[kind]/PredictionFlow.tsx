@@ -1,6 +1,5 @@
 "use client";
 
-import { Flame } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -30,6 +29,7 @@ import type {
 
 import { saveBracket, saveMatchPrediction } from "./actions";
 import BracketView from "@/components/BracketView";
+import EntrySubmitControls from "../EntrySubmitControls";
 import GroupStage from "./GroupStage";
 import ThirdsView from "./ThirdsView";
 
@@ -57,6 +57,7 @@ function needsScore(pred: LocalPrediction | undefined, hardcore: boolean): boole
 export default function PredictionFlow({
   challengeKind,
   entry,
+  submitted,
   challenge,
   teams,
   matches,
@@ -66,6 +67,8 @@ export default function PredictionFlow({
 }: {
   challengeKind: "full" | "groups";
   entry: { id: string; hardcore: boolean };
+  /** Submitted entries are read-only until withdrawn (Stage 9 item 20). */
+  submitted: boolean;
   challenge: ChallengeDTO;
   teams: TeamDTO[];
   matches: GroupMatchDTO[];
@@ -90,7 +93,10 @@ export default function PredictionFlow({
   }, [serverNowMs]);
   const now = new Date(nowMs);
 
-  const readOnly = isChallengeLocked(toChallengeLockState(challenge), now);
+  // Read-only when the challenge has locked OR the entry is submitted
+  // (Stage 9 item 20). Withdraw (below) clears the submitted state to re-open.
+  const challengeLocked = isChallengeLocked(toChallengeLockState(challenge), now);
+  const readOnly = challengeLocked || submitted;
 
   // --- working state ---------------------------------------------------------
   const initialPredMap = useMemo(
@@ -145,6 +151,15 @@ export default function PredictionFlow({
   );
 
   const progressDone = matches.filter((m) => hasPick(preds.get(m.id))).length;
+
+  // Still-fillable picks not yet made — drives the submit warning. Locked
+  // (kicked-off) matches are excluded; they can never be filled.
+  const groupMissing = matches.filter(
+    (m) => !isGroupMatchLocked(m, now) && !hasPick(preds.get(m.id)),
+  ).length;
+  const bracketMissing =
+    challengeKind === "full" && sim ? sim.matches.filter((m) => m.winner === undefined).length : 0;
+  const missing = groupMissing + bracketMissing;
 
   // --- match autosave (optimistic, latest-wins, rollback on rejection) --------
   // Last server-confirmed value per match; matches never saved this session
@@ -319,7 +334,7 @@ export default function PredictionFlow({
 
   const navChip = (active: boolean, attention: boolean, complete: boolean) =>
     [
-      "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+      "rounded-full px-3 py-1.5 text-center text-xs font-semibold transition-colors",
       active
         ? "bg-gold-500 text-pitch-950"
         : complete
@@ -337,8 +352,8 @@ export default function PredictionFlow({
           <h1 className="text-xl font-extrabold tracking-tight">
             {t(`titles.${challengeKind}`)}
             {entry.hardcore && (
-              <span className="ml-2 inline-flex items-center align-middle rounded-full bg-gold-500/15 px-1.5 py-1 text-gold-400">
-                <Flame className="size-3" aria-hidden="true" />
+              <span className="ml-2 inline-flex items-center align-middle rounded-full bg-gold-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-gold-400">
+                {t("hardcoreBadge")}
               </span>
             )}
           </h1>
@@ -346,9 +361,13 @@ export default function PredictionFlow({
             {t("progress", { done: progressDone, total: matches.length })}
           </span>
         </div>
-        {readOnly ? (
+        {challengeLocked ? (
           <p className="rounded-xl border border-pitch-700 bg-pitch-900 px-4 py-2.5 text-xs text-danger">
             {t("lockedBanner")}
+          </p>
+        ) : submitted ? (
+          <p className="rounded-xl border border-success/30 bg-pitch-900 px-4 py-2.5 text-xs text-success">
+            {t("submittedBanner")}
           </p>
         ) : (
           challenge.locksAt && (
@@ -369,40 +388,46 @@ export default function PredictionFlow({
         </div>
       </div>
 
-      {/* navigation: group chips + thirds + bracket */}
-      <nav className="flex flex-wrap gap-1.5 pb-1" aria-label={t("nav.groupsLabel")}>
-        {GROUP_IDS.map((g) => {
-          const dg = derived.byGroup.get(g);
-          const active = view.kind === "group" && view.group === g;
-          return (
-            <button
-              key={g}
-              type="button"
-              onClick={() => setView({ kind: "group", group: g })}
-              className={navChip(active, groupAttention(g), dg?.complete ?? false)}
-            >
-              {g}
-              {dg?.complete && !active ? " ✓" : ""}
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          onClick={() => setView({ kind: "thirds" })}
-          className={navChip(view.kind === "thirds", false, derived.allComplete)}
-        >
-          {t("nav.thirds")}
-        </button>
-        {challengeKind === "full" && (
+      {/* navigation: group chips (balanced 6+6 on mobile, single row from sm)
+          + a separate thirds/bracket row. Grid columns guarantee no scrollbar
+          at any width and an even wrap instead of fill-then-orphan (item 22). */}
+      <div className="flex flex-col gap-1.5">
+        <nav className="grid grid-cols-6 gap-1.5 sm:grid-cols-12" aria-label={t("nav.groupsLabel")}>
+          {GROUP_IDS.map((g) => {
+            const dg = derived.byGroup.get(g);
+            const active = view.kind === "group" && view.group === g;
+            return (
+              <button
+                key={g}
+                type="button"
+                onClick={() => setView({ kind: "group", group: g })}
+                className={navChip(active, groupAttention(g), dg?.complete ?? false)}
+              >
+                {g}
+                {dg?.complete && !active ? " ✓" : ""}
+              </button>
+            );
+          })}
+        </nav>
+        <div className="grid grid-cols-2 gap-1.5 sm:flex">
           <button
             type="button"
-            onClick={() => setView({ kind: "bracket" })}
-            className={navChip(view.kind === "bracket", stale.length > 0, sim?.champion !== undefined)}
+            onClick={() => setView({ kind: "thirds" })}
+            className={`${navChip(view.kind === "thirds", false, derived.allComplete)} sm:px-4`}
           >
-            {t("nav.bracket")}
+            {t("nav.thirds")}
           </button>
-        )}
-      </nav>
+          {challengeKind === "full" && (
+            <button
+              type="button"
+              onClick={() => setView({ kind: "bracket" })}
+              className={`${navChip(view.kind === "bracket", stale.length > 0, sim?.champion !== undefined)} sm:px-4`}
+            >
+              {t("nav.bracket")}
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* invalidation toast */}
       {clearedToast > 0 && (
@@ -446,6 +471,18 @@ export default function PredictionFlow({
           saveStatus={bracketStatus}
           index={index}
           onCommit={commitBracket}
+        />
+      )}
+
+      {/* Submit / Withdraw — the "I'm done" action at the end of the flow
+          (Stage 9 item 19). Hidden once the challenge itself has locked. */}
+      {!challengeLocked && (
+        <EntrySubmitControls
+          entryId={entry.id}
+          submitted={submitted}
+          locked={false}
+          missing={missing}
+          variant="flow"
         />
       )}
     </section>

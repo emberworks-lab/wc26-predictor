@@ -55,7 +55,7 @@ export default async function PredictPage({
 
   const { data: entry } = await supabase
     .from("challenge_entries")
-    .select("id, hardcore")
+    .select("id, hardcore, submitted_at")
     .eq("user_id", user!.id)
     .eq("challenge_id", challenge!.id)
     .maybeSingle();
@@ -259,6 +259,7 @@ export default async function PredictPage({
       <PredictionFlow
         challengeKind={kind as PredictableKind}
         entry={{ id: entry!.id, hardcore: entry!.hardcore }}
+        submitted={entry!.submitted_at != null}
         challenge={challengeDTO}
         teams={teamDTOs}
         matches={matchDTOs}

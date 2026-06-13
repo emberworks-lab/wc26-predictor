@@ -193,7 +193,9 @@
       "champion": "Your champion",
       "thirdPlace": "Third place",
       "needsGroups": "Your Round of 32 derives from your predicted group tables — finish all 12 groups first."
-    }
+    },
+    "hardcoreBadge": "Hardcore",
+    "submittedBanner": "Submitted — read-only. Use Withdraw below to edit again."
   },
   "Fun": {
     "title": "Fun Picks",
@@ -484,5 +486,16 @@
       "saved": "Saved — recompute done.",
       "setBadge": "set"
     }
+  },
+  "Submit": {
+    "submit": "Submit predictions",
+    "submitting": "Submitting…",
+    "submitHint": "Submitting locks your entry and puts it on the leaderboard. You can withdraw to edit again any time until the challenge closes.",
+    "warning": "{count, plural, =1 {1 pick still missing — it'll score 0} other {# picks still missing — they'll score 0}}. You can submit anyway.",
+    "readyTitle": "Ready to submit?",
+    "submittedTitle": "Submitted — locked in",
+    "withdraw": "Withdraw to edit",
+    "withdrawing": "Withdrawing…",
+    "withdrawHint": "Withdrawing clears your submission and drops you off the leaderboard until you submit again. Nothing is deleted — you can edit any match that hasn't kicked off, then re-submit."
   }
 }

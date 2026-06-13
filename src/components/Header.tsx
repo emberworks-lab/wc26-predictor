@@ -1,4 +1,3 @@
-import { Settings } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import Brand from "@/components/Brand";
@@ -36,10 +35,9 @@ export default async function Header() {
         {isAdmin && (
           <Link
             href="/admin"
-            aria-label={t("admin")}
-            className="flex items-center rounded-full border border-pitch-700 bg-pitch-800 p-2 text-text-muted transition-colors hover:border-gold-500 hover:text-gold-400"
+            className="rounded-full border border-pitch-700 bg-pitch-800 px-3 py-1.5 text-xs font-semibold text-text-muted transition-colors hover:border-gold-500 hover:text-gold-400"
           >
-            <Settings className="size-4" aria-hidden="true" />
+            {t("admin")}
           </Link>
         )}
         {user ? (
