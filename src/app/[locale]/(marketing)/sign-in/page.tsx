@@ -10,10 +10,23 @@ export default async function SignInPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; banned?: string }>;
 }) {
   const { locale } = await params;
-  const { error } = await searchParams;
+  const { error, banned } = await searchParams;
+
+  const t = await getTranslations("SignIn");
+
+  // A banned user still has a session — redirecting them to /challenges
+  // would loop back here. Show the notice instead.
+  if (banned) {
+    return (
+      <section className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-4 px-6 py-16 text-center">
+        <h1 className="text-2xl font-extrabold tracking-tight">{t("bannedTitle")}</h1>
+        <p className="text-sm text-text-muted">{t("bannedBody")}</p>
+      </section>
+    );
+  }
 
   const supabase = await createClient();
   const {
@@ -22,8 +35,6 @@ export default async function SignInPage({
   if (user) {
     redirect({ href: "/challenges", locale });
   }
-
-  const t = await getTranslations("SignIn");
 
   return (
     <section className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-8 px-6 py-16">

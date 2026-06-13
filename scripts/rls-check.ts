@@ -1,9 +1,10 @@
 /**
- * Stage 5 prediction-table RLS verification (run: pnpm tsx scripts/rls-check.ts).
+ * Security & RLS verification suite (run: pnpm tsx scripts/rls-check.ts).
+ * Stage 5 prediction-table checks + Stage 8 admin/banned checks.
  *
- * Extends the Stage 4 server-side check pattern: throwaway users exercise the
- * REAL production project through PostgREST with anon-key + user JWTs,
- * proving the SPEC's locking guarantees hold at the API layer:
+ * Throwaway users exercise the REAL production project through PostgREST
+ * with anon-key + user JWTs, proving the SPEC's locking guarantees hold at
+ * the API layer:
  *
  *   match_predictions
  *    1. writing a prediction for a future match succeeds
@@ -21,6 +22,19 @@
  *   12. gen-1 insert without a redistribution row is refused (RLS)
  *   13. winner outside the pairing is refused (trigger)
  *   14. hardcore bracket pick without a score is refused (trigger)
+ *   admin surface (Stage 8)
+ *   15. non-admin reads 0 sync_log rows
+ *   16. non-admin cannot update matches (0 rows affected)
+ *   17. non-admin cannot set their own role (column grant, 42501)
+ *   18. non-admin cannot update challenges (0 rows affected)
+ *   19. non-admin cannot update fun_questions (0 rows affected)
+ *   20. an admin CAN read sync_log (is_admin() policy)
+ *   21. an admin CAN read another user's unlocked prediction
+ *   banned user loses access (Stage 8)
+ *   22. banned: new prediction insert refused (RLS)
+ *   23. banned: update of an existing prediction affects 0 rows
+ *   24. banned: joining another challenge refused (RLS)
+ *   25. banned: hidden from leaderboard views (was visible before)
  *
  * Cleans up after itself (admin deleteUser cascades entries → predictions).
  */
@@ -291,6 +305,143 @@ async function main() {
       '14. hardcore bracket pick without a 90-minute score refused',
       e14?.code === 'P0001',
       e14 ? `code ${e14.code}` : 'insert unexpectedly succeeded',
+    );
+
+    // --- admin surface (Stage 8) ------------------------------------------------
+
+    // 15. non-admin reads 0 sync_log rows (is_admin() select policy)
+    const { data: r15, error: e15 } = await clientA.from('sync_log').select('id').limit(5);
+    check('15. non-admin reads 0 sync_log rows', !e15 && (r15 ?? []).length === 0, e15?.message ?? `${r15?.length} rows`);
+
+    // 16. non-admin cannot update matches (no write policy → 0 rows affected)
+    const { data: u16, error: e16 } = await clientA
+      .from('matches')
+      .update({ home_score: 99 })
+      .eq('id', lockedMatch.id)
+      .select('id');
+    check(
+      '16. non-admin match update affects 0 rows',
+      (e16 == null && (u16 ?? []).length === 0) || e16?.code === '42501',
+      e16?.message ?? `${u16?.length} rows affected`,
+    );
+
+    // 17. non-admin cannot change their own role (column grant revoked)
+    const { error: e17 } = await clientA
+      .from('profiles')
+      .update({ role: 'admin' })
+      .eq('id', userA);
+    check(
+      '17. non-admin cannot set own role',
+      e17?.code === '42501',
+      e17 ? `code ${e17.code}` : 'update unexpectedly succeeded',
+    );
+
+    // 18. non-admin cannot update challenges
+    const { data: u18, error: e18 } = await clientA
+      .from('challenges')
+      .update({ manual_override: 'locked' })
+      .eq('id', fullId)
+      .select('id');
+    check(
+      '18. non-admin challenge update affects 0 rows',
+      (e18 == null && (u18 ?? []).length === 0) || e18?.code === '42501',
+      e18?.message ?? `${u18?.length} rows affected`,
+    );
+
+    // 19. non-admin cannot write fun_questions (correct answers)
+    const { data: u19, error: e19 } = await clientA
+      .from('fun_questions')
+      .update({ correct_numeric: 1 })
+      .gt('id', 0)
+      .select('id');
+    check(
+      '19. non-admin fun_questions update affects 0 rows',
+      (e19 == null && (u19 ?? []).length === 0) || e19?.code === '42501',
+      e19?.message ?? `${u19?.length} rows affected`,
+    );
+
+    // Promote B to admin (service role) for the positive checks.
+    {
+      const { error } = await admin.from('profiles').update({ role: 'admin' }).eq('id', userB);
+      if (error) throw new Error(`promote B to admin: ${error.message}`);
+    }
+
+    // 20. admin reads sync_log rows
+    const { data: r20, error: e20 } = await clientB.from('sync_log').select('id').limit(5);
+    check('20. admin CAN read sync_log', !e20 && (r20 ?? []).length > 0, e20?.message ?? `${r20?.length} rows`);
+
+    // 21. admin reads another user's UNLOCKED prediction (is_admin in policy)
+    const { data: r21 } = await clientB
+      .from('match_predictions')
+      .select('id')
+      .eq('entry_id', entryA.id)
+      .eq('match_id', futureM1.id);
+    check('21. admin CAN read an unlocked prediction', (r21 ?? []).length === 1, `${r21?.length} rows`);
+
+    // --- banned user loses access (Stage 8) ----------------------------------------
+
+    // Visible on the leaderboard view before the ban (entry exists for A).
+    const { data: pre25 } = await clientB
+      .from('leaderboard_entry_rows')
+      .select('user_id')
+      .eq('user_id', userA);
+    const visibleBefore = (pre25 ?? []).length >= 1;
+
+    {
+      const { error } = await admin
+        .from('profiles')
+        .update({ banned_at: new Date().toISOString() })
+        .eq('id', userA);
+      if (error) throw new Error(`ban A: ${error.message}`);
+    }
+
+    // 22. banned: new insert refused
+    const { data: futureM3 } = await clientA
+      .from('matches')
+      .select('id')
+      .eq('stage', 'group')
+      .gt('kickoff_utc', new Date(Date.now() + 60 * 60 * 1000).toISOString())
+      .order('kickoff_utc')
+      .limit(1)
+      .single();
+    const { error: e22 } = await clientA
+      .from('match_predictions')
+      .insert({ entry_id: entryA.id, match_id: futureM3!.id, outcome: 'home' });
+    check(
+      '22. banned user prediction insert refused',
+      e22?.code === '42501',
+      e22 ? `code ${e22.code}` : 'insert unexpectedly succeeded',
+    );
+
+    // 23. banned: update affects 0 rows
+    const { data: u23 } = await clientA
+      .from('match_predictions')
+      .update({ outcome: 'away' })
+      .eq('entry_id', entryA.id)
+      .eq('match_id', futureM1.id)
+      .select('id');
+    check('23. banned user prediction update affects 0 rows', (u23 ?? []).length === 0, `${u23?.length} rows`);
+
+    // 24. banned: joining another challenge refused
+    const groupsId = challenges!.find((c) => c.kind === 'groups')!.id;
+    const { error: e24 } = await clientA
+      .from('challenge_entries')
+      .insert({ user_id: userA, challenge_id: groupsId });
+    check(
+      '24. banned user cannot join a challenge',
+      e24?.code === '42501',
+      e24 ? `code ${e24.code}` : 'insert unexpectedly succeeded',
+    );
+
+    // 25. banned: gone from leaderboard views
+    const { data: r25 } = await clientB
+      .from('leaderboard_entry_rows')
+      .select('user_id')
+      .eq('user_id', userA);
+    check(
+      '25. banned user hidden from leaderboards',
+      visibleBefore && (r25 ?? []).length === 0,
+      `before ${pre25?.length}, after ${r25?.length}`,
     );
   } finally {
     await admin.auth.admin.deleteUser(userA);

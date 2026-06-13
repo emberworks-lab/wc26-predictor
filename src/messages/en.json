@@ -6,7 +6,8 @@
     "switchLocale": {
       "en": "EN",
       "uk": "UK"
-    }
+    },
+    "admin": "Admin"
   },
   "Hero": {
     "title": "Predict the 2026 World Cup",
@@ -66,7 +67,9 @@
       "invalidEmail": "That doesn't look like a valid email address.",
       "rateLimited": "Too many attempts — wait a minute and try again.",
       "generic": "Sign-in failed. Please try again."
-    }
+    },
+    "bannedTitle": "Account suspended",
+    "bannedBody": "Your account has been banned by the administrator. Your predictions are retained but you can no longer participate."
   },
   "Onboarding": {
     "title": "Almost there",
@@ -396,6 +399,76 @@
       "koPicks": "More correct knockout advancing picks",
       "outcomes": "More correct group match outcomes",
       "registration": "Earlier registration"
+    }
+  },
+  "Admin": {
+    "title": "Admin",
+    "nav": {
+      "label": "Admin sections",
+      "sync": "Sync & logs",
+      "matches": "Matches",
+      "challenges": "Challenges",
+      "users": "Users",
+      "fun": "Fun answers"
+    },
+    "sync": {
+      "forceTitle": "Force sync",
+      "running": "Running…",
+      "logsTitle": "Job log",
+      "allKinds": "all kinds",
+      "allStatuses": "all statuses",
+      "noRows": "No log rows match."
+    },
+    "matches": {
+      "searchPlaceholder": "Filter by team or group…",
+      "search": "Filter",
+      "hint": "Saving a correction flags the match as manually corrected — sync will not overwrite it until you clear the flag. Points and standings recompute immediately.",
+      "noRows": "No matches found.",
+      "status": "Status",
+      "winner": "Advances",
+      "homeEt": "Home ET",
+      "awayEt": "Away ET",
+      "homePens": "Home pens",
+      "awayPens": "Away pens",
+      "save": "Save correction",
+      "working": "Working…",
+      "saved": "Saved — recompute done.",
+      "clearFlag": "Clear flag & restore feed",
+      "cleared": "Flag cleared — provider result restored.",
+      "correctedBadge": "corrected",
+      "explainer": "90' scores drive scoring. For knockout matches pick who advances; ET/pens fields are informational (they mark the match as decided beyond 90 minutes)."
+    },
+    "challenges": {
+      "hint": "Override wins over the timestamps. Matches that already kicked off stay locked even under \"force open\".",
+      "auto": "Automatic",
+      "forceOpen": "Force open",
+      "forceLocked": "Force locked",
+      "opens": "opens",
+      "locks": "locks",
+      "notOpenSentinel": "after groups"
+    },
+    "users": {
+      "hint": "Ban hides the user from leaderboards and blocks all writes; predictions are retained. Entries can be deleted individually.",
+      "bannedBadge": "banned",
+      "ban": "Ban",
+      "unban": "Unban",
+      "banConfirm": "Ban {name}? They lose access immediately.",
+      "rename": "Rename",
+      "saveRename": "Save",
+      "cancel": "Cancel",
+      "deleteEntry": "Delete entry",
+      "deleteEntryConfirm": "Delete this user's {kind} entry with all its predictions?"
+    },
+    "fun": {
+      "hint": "Enter the real answers after the tournament (numeric ones can be set earlier — scoring recomputes on every save). For player picks use the suggestions: scoring matches the exact spelling.",
+      "pickPlaceholder": "Type a player's name…",
+      "yes": "Yes",
+      "no": "No",
+      "save": "Save",
+      "clear": "Clear",
+      "working": "Working…",
+      "saved": "Saved — recompute done.",
+      "setBadge": "set"
     }
   }
 }

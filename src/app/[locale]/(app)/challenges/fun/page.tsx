@@ -1,9 +1,9 @@
 import { redirect } from "@/i18n/navigation";
-import { FUN_PLAYER_SUGGESTIONS } from "@/lib/predictions/funPlayers";
+import { buildPlayerSuggestions } from "@/lib/predictions/funSuggestions";
 import type { ChallengeDTO } from "@/lib/predictions/types";
 import { createClient } from "@/lib/supabase/server";
 
-import FunForm, { type FunAnswerDTO, type FunQuestionDTO, type PlayerSuggestion } from "./FunForm";
+import FunForm, { type FunAnswerDTO, type FunQuestionDTO } from "./FunForm";
 
 /**
  * Fun challenge: 12 one-off questions over `fun_questions`, answers in
@@ -38,45 +38,17 @@ export default async function FunPage({
     .maybeSingle();
   if (!entry) redirect({ href: "/challenges", locale });
 
-  const [{ data: questions }, { data: answers }, { data: teams }, { data: scorers }] =
-    await Promise.all([
-      supabase
-        .from("fun_questions")
-        .select("id, key, qtype, max_pts, tolerance, sort_order")
-        .order("sort_order"),
-      supabase
-        .from("fun_answers")
-        .select("question_id, numeric_answer, text_answer, bool_answer")
-        .eq("entry_id", entry!.id),
-      supabase.from("teams").select("fifa_code, flag_emoji").not("group_code", "is", null),
-      supabase
-        .from("scorers_cache")
-        .select("player_name, teams (fifa_code)")
-        .order("goals", { ascending: false })
-        .limit(100),
-    ]);
-
-  const flagByCode = new Map((teams ?? []).map((t) => [t.fifa_code, t.flag_emoji]));
-
-  // Static stars filtered to actually-qualified teams, then live scorers on
-  // top (dedup by name — the static spelling wins, it's what admins will use).
-  const suggestionByName = new Map<string, PlayerSuggestion>();
-  for (const p of FUN_PLAYER_SUGGESTIONS) {
-    const flag = flagByCode.get(p.team);
-    if (flag) suggestionByName.set(p.name, { name: p.name, team: p.team, flag });
-  }
-  for (const s of scorers ?? []) {
-    const code = s.teams?.fifa_code;
-    if (!code || suggestionByName.has(s.player_name)) continue;
-    suggestionByName.set(s.player_name, {
-      name: s.player_name,
-      team: code,
-      flag: flagByCode.get(code) ?? "",
-    });
-  }
-  const players = [...suggestionByName.values()].sort(
-    (a, b) => a.team.localeCompare(b.team) || a.name.localeCompare(b.name),
-  );
+  const [{ data: questions }, { data: answers }, players] = await Promise.all([
+    supabase
+      .from("fun_questions")
+      .select("id, key, qtype, max_pts, tolerance, sort_order")
+      .order("sort_order"),
+    supabase
+      .from("fun_answers")
+      .select("question_id, numeric_answer, text_answer, bool_answer")
+      .eq("entry_id", entry!.id),
+    buildPlayerSuggestions(supabase),
+  ]);
 
   const questionDTOs: FunQuestionDTO[] = (questions ?? []).map((q) => ({
     id: q.id,
