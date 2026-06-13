@@ -14,30 +14,6 @@
 
 ## Backlog
 
-### 3. Copy predictions as a template across challenges — `open` · large · P1
-*2026-06-13, feature idea after Stage 5.*
-A user who completed the Full Tournament challenge should be able to one-click copy those
-predictions into the **Groups** challenge (and later into **Playoff** when it opens) as a
-*template*: the target challenge gets prefilled with the Full data, the user can then edit
-freely and submit (or submit as-is immediately).
-Design notes:
-- Copy is a one-time prefill action, NOT a live link — after copying, the entries are
-  fully independent.
-- Groups: copy the 72 group-match predictions (respecting locked matches — skip those).
-- Playoff (only after it opens with the real bracket): copy only where the user's
-  predicted R32 pairing matches the real pairing; leave mismatched slots empty.
-- Hardcore mismatch between source and target entry: hardcore→casual collapses scores to
-  outcomes; casual→hardcore can only prefill outcomes (scores still needed manually).
-- Server action with the same lock validation as normal saves; copying must never bypass
-  kickoff locks (RLS already guarantees this — keep the action on the user's JWT, not
-  service role).
-
-### 8. Drop the landing page — root goes straight to Tournament — `open` · small · P1
-*2026-06-13.*
-The marketing landing adds no value for a friends app. Redirect `/` (per locale) to the
-Tournament tab (public). Logged-out users see the public tabs; auth-gated areas show a
-sign-in CTA instead of content. Keep the sign-in page itself.
-
 ### 9. Match details view — `open` · medium · research
 *2026-06-13.*
 Click a match (Tournament tab; maybe also in wizards) → detail view: what CAN we show?
@@ -53,13 +29,6 @@ own (only for locked matches, mind RLS).
 Tournament tab: collapse/expand matchday/date sections in the schedule; make group tables
 clickable → a group page with its matches, table, and whatever info we have.
 
-### 11. Rich "view another user's predictions" UI — `open` · medium · P1
-*2026-06-13.*
-Leaderboard → user → today it's a breakdown table. Wanted: a graphical view of their
-predictions (their bracket rendered as a bracket, their group picks vs reality), so
-friends can compare. RLS already only exposes locked predictions — purely a UI task
-(reuse BracketView read-only mode + wizard read-only mode pointed at another entry).
-
 ### 12. Live-match indicator everywhere — `open` · small · P2
 *2026-06-13.*
 Schedule already has a live indicator; surface "LIVE" consistently anywhere a match
@@ -70,12 +39,6 @@ area if a relevant match is in play).
 *2026-06-13.*
 Rework the score picker: bigger tap targets, maybe a quick numeric pad / common-score
 chips (1:0, 2:1, …), fewer taps per match. Mobile-first.
-
-### 15. Branding: real logo + drop decorative emojis — `open` · medium · P2
-*2026-06-13.*
-Add a proper mark (ball/trophy SVG) top-left; replace decorative UI emojis (🏆📊⚔️🎲 on
-challenge cards etc.) with consistent SVG icons (e.g. lucide). Team FLAG emojis stay —
-they're data, not decoration. Goal: stop looking vibe-coded.
 
 ### 16. External odds / model predictions on matches — `open` · large · research
 *2026-06-13.*
@@ -102,6 +65,38 @@ which such predictions exist for WC26 in machine-readable/transcribable form; co
 caution — facts (who advances) are fine, verbatim articles are not.
 
 ## Done
+
+### 3. Copy predictions as a template across challenges — ✅ PR #12 (Stage 9 iter 2)
+*Fixed 2026-06-13.* Pure planners `src/lib/predictions/copy.ts` (`planGroupCopy` +
+`planPlayoffCopy`, 7 unit tests) + a `copyPredictions` server action on the **user's JWT**
+(RLS enforces ownership + kickoff locks; never service role). **Full → Groups** copies the
+72 group predictions — hardcore→casual collapses scores to outcomes, casual→hardcore skips
+scoreless rows, locked/kicked-off matches skipped. **Full → Playoff** copies R32 picks only
+where the predicted pairing matches reality (score re-oriented to the real home/away order);
+wired but UI-gated on the Playoff challenge opening (post-groups, untestable until then).
+`CopyFromFull` button on the target challenge card (confirm + "copied N / skipped …" toast).
+A copied entry stays a **draft** until submitted (iter-1 gate intact). Verified: RLS
+write-path proven on a throwaway user (Full→Groups lands 68 rows; a finished match write
+refused 42501), copy button renders on the Groups card en + uk.
+
+### 8. Drop the landing page — root goes straight to Tournament — ✅ PR #12 (Stage 9 iter 2)
+*Fixed 2026-06-13.* `/[locale]` redirects to the public Tournament tab;
+`HeroSection`/`ChallengesSection` removed; sign-in kept. Verified live: `/en` → `/en/tournament`.
+
+### 11. Rich "view another user's predictions" UI — ✅ PR #12 (Stage 9 iter 2)
+*Fixed 2026-06-13.* Read-only graphical **predicted bracket** on the profile
+(`ProfileBracket` reuses `BracketView` results mode), under a "Predicted bracket" disclosure
+for Full entries. RLS-scoped: complete on your own profile (verified — renders the derived
+R32 with match cards), fills in for others once their picks unlock (no pre-lock value by
+design, as noted).
+
+### 15. Branding: real logo + drop decorative emojis — ✅ PR #12 (Stage 9 iter 2)
+*Fixed 2026-06-13.* Real SVG football mark (`Brand`) + wordmark in the header; lucide icons
+replace the decorative emojis (challenge cards 🏆📊⚔️🎲 → Trophy/LayoutGrid/Swords/Dices;
+tab bar → Target/Goal/Medal/CircleUser; admin gear → Settings; hardcore 🔥 → Flame;
+champion/third 🏆🥉 → Trophy/Medal; tournament 🗓️ → CalendarDays; board labels). 🔥 stripped
+from message strings. **Team flag emojis stay** (data). Verified live (mobile, public
+Tournament): logo + tab icons render, flags intact.
 
 ### 4. Explicit Submit + completion state; "70/72" reads as a bug — ✅ PR #11 (Stage 9 iter 1)
 *Fixed 2026-06-13.* Root cause of the "70/72" confusion: the counter denominator

@@ -231,6 +231,60 @@
 
 ## Stage log
 
+### Stage 9 — iteration 2 — June 13, 2026
+- Branch `stage/9-iteration-2` → PR #12 → merged. 167 unit tests green (was 160;
+  +7 for the copy planners). Cleared the remaining pre-lock-relevant P1 items
+  (3, 8, 15) ahead of the Jun 18 02:00 UTC main lock, plus the conditional P1
+  (11). lucide-react added.
+- **Item 3 — copy predictions as a template (the large one).** Pure planners
+  `src/lib/predictions/copy.ts` (`planGroupCopy` + `planPlayoffCopy`) decide what
+  to write; `copyPredictions` server action (in `challenges/actions.ts`) runs on
+  the **user's JWT** so RLS enforces ownership + kickoff locks — never service
+  role, never bypasses RLS. **Full → Groups** copies the 72 group predictions
+  (hardcore→casual collapses scores to outcomes; casual→hardcore skips scoreless
+  rows since the trigger rejects outcome-only hardcore rows; locked matches
+  skipped). **Full → Playoff** copies R32 picks where the predicted pairing
+  matches reality (score re-oriented to real home/away); wired + unit-tested but
+  the UI is gated on the Playoff challenge being open (post-groups — untestable
+  live until ~Jun 27). `CopyFromFull` client button on the target ChallengeCard
+  (`copySourceEntryId` passed from the page when the Full entry has the relevant
+  picks); confirm + "copied N / skipped …" toast; `router.refresh()`. Copied
+  entries stay drafts until submitted (iter-1 submit gate unchanged).
+  **The `CopyResult` type lives in `copy.ts`, not the "use server" file** (the
+  loader rejects non-async exports).
+- **Item 8 — landing dropped.** `(marketing)/page.tsx` now redirects
+  `/[locale]` → `/tournament`; `HeroSection`/`ChallengesSection` deleted; the
+  `Hero` + `Challenges.heading` + per-item `emoji` message keys removed
+  (`Challenges.items.*.title/description` kept — used by ChallengeCard +
+  ProfileView). Sign-in page kept.
+- **Item 15 — branding.** `src/components/Brand.tsx` (inline SVG football mark,
+  `currentColor`) in the header; `src/components/ChallengeIcon.tsx` maps kinds →
+  lucide. Decorative emojis replaced with lucide across header gear (Settings),
+  tab bar (Target/Goal/Medal/CircleUser), challenge cards
+  (Trophy/LayoutGrid/Swords/Dices), hardcore badges (Flame), BracketView
+  champion/third (Trophy/Medal), tournament empty-bracket (CalendarDays),
+  leaderboard board labels + empty state. 🔥 stripped from message strings.
+  **Team flag emojis + the `🏳️` FALLBACK_FLAG stay** (data, not decoration).
+- **Item 11 — read-only graphical bracket on the profile.** `ProfileBracket`
+  client wrapper derives the user's R32 from their group picks
+  (`deriveGroups`→`deriveBracket`) and renders `BracketView` in `mode="results"`
+  (no affordances, no progress copy) under a "Predicted bracket" disclosure on
+  Full entries. RLS-scoped: complete on your own profile, degrades to BracketView's
+  "finish the groups" message for another user until their picks unlock (no
+  pre-lock value by design). ProfileView gained group-matches + full-bracket-row +
+  team-group queries to feed it.
+- **Verification.** Browser (local dev vs prod DB, mobile 375px): `/en` →
+  `/en/tournament` redirect; branding screenshot (gold mark + lucide tab icons,
+  flags intact). Server-rendered HTML (en + uk) confirmed the copy button on the
+  Groups card and "Predicted bracket" + "Round of 32" + match cards on the
+  profile. **Copy RLS write-path proven** on a throwaway user: Full→Groups
+  upsert on the user's JWT lands 68 rows; a finished (locked) match write is
+  refused (42501). Throwaway user cleaned up (prod back to 3 profiles / 3
+  entries). The interactive copy-button CLICK could NOT be exercised in this
+  preview session — the page-content Suspense fallback didn't get replaced
+  client-side (same environmental non-hydration quirk recorded in iter 1; server
+  returns 200); to be confirmed on the deployed URL post-merge.
+
 ### Stage 9 — iteration 1 — June 13, 2026
 - Branch `stage/9-iteration-1` → PR #11 → merged. 160 unit tests green (was 154;
   +6 for the new completion helper). Cleared ALL P0-prelock backlog items
