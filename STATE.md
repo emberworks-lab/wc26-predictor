@@ -300,11 +300,11 @@
   UK strings render. Mobile 375px screenshots: A–L in two even rows, iconless tab
   bar Tournament-first, text wordmark, flags intact, submitted card with Withdraw.
   Throwaway users self-cleaned (prod back to 3 real profiles).
-- **PENDING manual step (NOT deadline-critical):** re-bundle + redeploy the `sync`
-  Edge Function (`scripts/bundle-sync.mjs`) so deployed recompute uses the new fun
-  ranged scoring. Fun actuals aren't entered until after the final (Jul 19), so
-  recompute doesn't score Fun before then — safe to redeploy any time before
-  entering fun `correct_*` actuals.
+- **Sync Edge Function redeployed (done):** re-bundled via `scripts/bundle-sync.mjs`
+  and deployed as **version 4** (CLI `functions deploy sync --no-verify-jwt --use-api`
+  from a temp workdir) so deployed recompute uses the new fun ranged scoring. Manual
+  `?mode=recompute` after deploy returned `{ok, entries:4, rows:2}` — idempotent, same
+  real points as before (no fun rows yet; 0 fun actuals until after the final).
 
 ### Stage 9 — iteration 2 — June 13, 2026
 - Branch `stage/9-iteration-2` → PR #12 → merged. 167 unit tests green (was 160;
