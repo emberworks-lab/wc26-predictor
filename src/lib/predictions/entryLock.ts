@@ -16,6 +16,8 @@ export const failureCode = (pgCode: string | undefined): "locked" | "invalid" | 
 
 export interface EntryState {
   locked: boolean;
+  /** Submitted entries are read-only (Stage 9 item 20) — gen-0 writes refused. */
+  submitted: boolean;
   hardcore: boolean;
   kind: "full" | "groups" | "playoff" | "fun";
   challengeId: number;
@@ -28,13 +30,14 @@ export async function entryState(
 ): Promise<EntryState | null> {
   const { data } = await supabase
     .from("challenge_entries")
-    .select("id, hardcore, challenges (id, kind, opens_at, locks_at, manual_override)")
+    .select("id, hardcore, submitted_at, challenges (id, kind, opens_at, locks_at, manual_override)")
     .eq("id", entryId)
     .maybeSingle();
   const c = data?.challenges;
   if (!c) return null;
   return {
     hardcore: data!.hardcore,
+    submitted: data!.submitted_at != null,
     kind: c.kind,
     challengeId: c.id,
     locked: isChallengeLocked(

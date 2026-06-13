@@ -1,6 +1,5 @@
 "use client";
 
-import { Medal, Trophy } from "lucide-react";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -317,8 +316,10 @@ export default function BracketView({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-col gap-2">
+        {/* Round tabs in a fixed grid: no scrollbar, even at the narrowest
+            width, and never an orphan wrap (item 22). */}
+        <div className="grid grid-cols-5 gap-1.5">
           {KO_ROUND_ORDER.map((r) => {
             const complete = roundComplete(r);
             return (
@@ -327,7 +328,7 @@ export default function BracketView({
                 type="button"
                 onClick={() => setRound(r)}
                 className={[
-                  "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                  "rounded-full px-2 py-1.5 text-center text-xs font-semibold transition-colors",
                   r === round
                     ? "bg-gold-500 text-pitch-950"
                     : complete
@@ -384,30 +385,24 @@ export default function BracketView({
       </ul>
 
       {(champion || thirdPlace) && (
-        <div className="flex flex-col gap-2 rounded-2xl border border-gold-500/40 bg-pitch-800 p-5">
+        <div className="flex flex-col gap-3 rounded-2xl border border-gold-500/40 bg-pitch-800 p-5">
           {champion && (
-            <p className="flex items-center gap-3">
-              <Trophy className="size-7 shrink-0 text-gold-400" aria-hidden="true" />
-              <span>
-                <span className="block text-[11px] uppercase tracking-wider text-text-muted">
-                  {t("champion")}
-                </span>
-                <span className="text-lg font-extrabold text-gold-400">
-                  {champion.flag} {champion.name}
-                </span>
+            <p>
+              <span className="block text-[11px] uppercase tracking-wider text-text-muted">
+                {t("champion")}
+              </span>
+              <span className="text-lg font-extrabold text-gold-400">
+                {champion.flag} {champion.name}
               </span>
             </p>
           )}
           {thirdPlace && (
-            <p className="flex items-center gap-3">
-              <Medal className="size-7 shrink-0 text-amber-700" aria-hidden="true" />
-              <span>
-                <span className="block text-[11px] uppercase tracking-wider text-text-muted">
-                  {t("thirdPlace")}
-                </span>
-                <span className="text-sm font-bold">
-                  {thirdPlace.flag} {thirdPlace.name}
-                </span>
+            <p>
+              <span className="block text-[11px] uppercase tracking-wider text-text-muted">
+                {t("thirdPlace")}
+              </span>
+              <span className="text-sm font-bold">
+                {thirdPlace.flag} {thirdPlace.name}
               </span>
             </p>
           )}

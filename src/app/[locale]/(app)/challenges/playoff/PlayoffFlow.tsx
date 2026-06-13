@@ -1,10 +1,10 @@
 "use client";
 
-import { Flame } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import BracketView from "@/components/BracketView";
+import EntrySubmitControls from "../EntrySubmitControls";
 import Countdown from "@/components/Countdown";
 import KickoffTime from "@/components/KickoffTime";
 import { isChallengeLocked } from "@/engine/locks";
@@ -43,6 +43,7 @@ const BRACKET_SAVE_DEBOUNCE_MS = 800;
  */
 export default function PlayoffFlow({
   entry,
+  submitted,
   challenge,
   teams,
   realSlots,
@@ -50,6 +51,8 @@ export default function PlayoffFlow({
   serverNow,
 }: {
   entry: { id: string; hardcore: boolean };
+  /** Submitted entries are read-only until withdrawn (Stage 9 item 20). */
+  submitted: boolean;
   challenge: ChallengeDTO;
   teams: TeamDTO[];
   realSlots: RealSlotDTO[];
@@ -69,7 +72,8 @@ export default function PlayoffFlow({
     const i = setInterval(tick, 30_000);
     return () => clearInterval(i);
   }, [serverNowMs]);
-  const readOnly = isChallengeLocked(toChallengeLockState(challenge), new Date(nowMs));
+  const challengeLocked = isChallengeLocked(toChallengeLockState(challenge), new Date(nowMs));
+  const readOnly = challengeLocked || submitted;
 
   // The real R32: fixed pairings from the synced bracket.
   const r32 = useMemo<BracketMatch[]>(() => {
@@ -163,16 +167,20 @@ export default function PlayoffFlow({
           <h1 className="text-xl font-extrabold tracking-tight">
             {t("title")}
             {entry.hardcore && (
-              <span className="ml-2 inline-flex items-center align-middle rounded-full bg-gold-500/15 px-1.5 py-1 text-gold-400">
-                <Flame className="size-3" aria-hidden="true" />
+              <span className="ml-2 inline-flex items-center align-middle rounded-full bg-gold-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-gold-400">
+                {tp("hardcoreBadge")}
               </span>
             )}
           </h1>
         </div>
         <p className="text-xs text-text-muted">{t("subtitle")}</p>
-        {readOnly ? (
+        {challengeLocked ? (
           <p className="rounded-xl border border-pitch-700 bg-pitch-900 px-4 py-2.5 text-xs text-danger">
             {t("lockedBanner")}
+          </p>
+        ) : submitted ? (
+          <p className="rounded-xl border border-success/30 bg-pitch-900 px-4 py-2.5 text-xs text-success">
+            {tp("submittedBanner")}
           </p>
         ) : (
           challenge.locksAt && (
@@ -207,6 +215,17 @@ export default function PlayoffFlow({
           saveStatus={bracketStatus}
           index={index}
           onCommit={commitBracket}
+        />
+      )}
+
+      {/* Submit / Withdraw at the end of the flow (Stage 9 items 19 + 20). */}
+      {!challengeLocked && r32.length >= 16 && (
+        <EntrySubmitControls
+          entryId={entry.id}
+          submitted={submitted}
+          locked={false}
+          missing={sim.matches.filter((m) => m.winner === undefined).length}
+          variant="flow"
         />
       )}
     </section>

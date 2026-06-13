@@ -52,6 +52,7 @@ export async function saveMatchPrediction(input: {
   if (!match || state === null) return { ok: false, code: "invalid" };
   if (
     state.locked ||
+    state.submitted ||
     isMatchLocked({ kickoffUtc: match.kickoff_utc }, new Date()) ||
     !(EDITABLE_MATCH_STATUSES as readonly string[]).includes(match.status)
   ) {
@@ -142,7 +143,10 @@ export async function saveBracket(input: {
   const state = await entryState(supabase, entryId);
   if (state === null) return { ok: false, code: "invalid" };
   if (generation === 0) {
-    if (state.locked) return { ok: false, code: "locked" };
+    // Gen 0 is frozen once the challenge locks OR the entry is submitted
+    // (Stage 9 item 20). Redistribution generations (gen > 0) are the sole
+    // post-submit write path and skip the submitted check below.
+    if (state.locked || state.submitted) return { ok: false, code: "locked" };
   } else {
     // A redistribution generation: exists for this entry, round not started.
     const { data: redist } = await supabase

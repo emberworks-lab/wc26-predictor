@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getLocale } from "next-intl/server";
 
+import { redirect } from "@/i18n/navigation";
 import { isChallengeLocked, isMatchLocked } from "@/engine/locks";
 import {
   planGroupCopy,
@@ -22,6 +24,7 @@ import { createClient } from "@/lib/supabase/server";
  */
 export async function joinChallenge(formData: FormData) {
   const challengeId = Number(formData.get("challengeId"));
+  const kind = String(formData.get("kind") ?? "");
   const hardcore = formData.get("hardcore") === "on";
   if (!Number.isInteger(challengeId)) return;
 
@@ -31,12 +34,21 @@ export async function joinChallenge(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase.from("challenge_entries").insert({
+  const { error } = await supabase.from("challenge_entries").insert({
     user_id: user.id,
     challenge_id: challengeId,
     hardcore,
   });
   revalidatePath("/[locale]/challenges", "page");
+
+  // Stage 9 item 21: drop the user straight INTO that challenge's prediction
+  // flow instead of leaving them on the cards page. Each kind has its own
+  // route; the flow's own page guards re-check the entry exists (no-op if the
+  // insert was refused, which only happens once the challenge is locked — and
+  // the Join button only renders while it's open).
+  if (!error && (kind === "full" || kind === "groups" || kind === "playoff" || kind === "fun")) {
+    redirect({ href: `/challenges/${kind}`, locale: await getLocale() });
+  }
 }
 
 export async function setHardcore(formData: FormData) {
@@ -53,15 +65,14 @@ export async function setHardcore(formData: FormData) {
 }
 
 /**
- * Submit an entry → it now participates in the leaderboards (Stage 9 item 4).
- * RLS does the real enforcement: entries_update requires `user_id = auth.uid()`
- * and the challenge not locked, so a submit after the deadline is refused and a
- * once-submitted entry can never be edited/withdrawn post-lock. Submitting is
- * allowed with incomplete picks (missing ones simply score 0). Editing
- * predictions afterwards keeps the entry submitted — submitted stays submitted.
+ * Submit an entry → it joins the leaderboards AND becomes read-only
+ * (Stage 9 items 4 + 20). RLS does the real enforcement: entries_update
+ * requires `user_id = auth.uid()` and the challenge not locked, so a submit
+ * after the deadline is refused; and once `submitted_at` is set, the
+ * prediction-write policies (can_edit_*) reject further edits. Submitting is
+ * allowed with incomplete picks (missing ones simply score 0).
  */
-export async function submitEntry(formData: FormData) {
-  const entryId = String(formData.get("entryId") ?? "");
+export async function submitEntry(entryId: string) {
   if (!entryId) return;
 
   const supabase = await createClient();
@@ -70,6 +81,28 @@ export async function submitEntry(formData: FormData) {
     .update({ submitted_at: new Date().toISOString() })
     .eq("id", entryId);
   revalidatePath("/[locale]/challenges", "page");
+  revalidatePath("/[locale]/challenges/[kind]", "page");
+}
+
+/**
+ * Withdraw an entry (Stage 9 item 20, decision A — no erase). Clears
+ * `submitted_at` ONLY: no prediction is deleted. The entry drops off the
+ * leaderboards and editing re-opens for not-yet-kicked-off matches (the
+ * per-match kickoff lock is independent and always applies; already-played
+ * correct picks are preserved and resume scoring on re-submit). The existing
+ * entries_update RLS policy (owner + not banned + challenge not locked) gates
+ * this, so withdraw is only possible while the challenge itself is unlocked.
+ */
+export async function withdrawEntry(entryId: string) {
+  if (!entryId) return;
+
+  const supabase = await createClient();
+  await supabase
+    .from("challenge_entries")
+    .update({ submitted_at: null })
+    .eq("id", entryId);
+  revalidatePath("/[locale]/challenges", "page");
+  revalidatePath("/[locale]/challenges/[kind]", "page");
 }
 
 type EntryWithChallenge = {

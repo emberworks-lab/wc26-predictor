@@ -39,7 +39,7 @@ export async function saveFunAnswer(input: {
   const supabase = await createClient();
   const state = await entryState(supabase, entryId);
   if (state === null || state.kind !== "fun") return { ok: false, code: "invalid" };
-  if (state.locked) return { ok: false, code: "locked" };
+  if (state.locked || state.submitted) return { ok: false, code: "locked" };
 
   const { error } = await supabase.from("fun_answers").upsert(
     {

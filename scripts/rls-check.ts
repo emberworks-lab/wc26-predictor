@@ -30,11 +30,16 @@
  *   19. non-admin cannot update fun_questions (0 rows affected)
  *   20. an admin CAN read sync_log (is_admin() policy)
  *   21. an admin CAN read another user's unlocked prediction
+ *   submit finalizes / withdraw re-opens (Stage 9 item 20)
+ *   22. a submitted entry refuses a future-match edit (read-only server-side)
+ *   23. a submitted entry refuses a gen-0 bracket edit
+ *   24. withdraw clears submitted_at and re-opens a future-match edit
+ *   25. a kicked-off match stays locked through both submit and withdraw
  *   banned user loses access (Stage 8)
- *   22. banned: new prediction insert refused (RLS)
- *   23. banned: update of an existing prediction affects 0 rows
- *   24. banned: joining another challenge refused (RLS)
- *   25. banned: hidden from leaderboard views (was visible before)
+ *   26. banned: new prediction insert refused (RLS)
+ *   27. banned: update of an existing prediction affects 0 rows
+ *   28. banned: joining another challenge refused (RLS)
+ *   29. banned: hidden from leaderboard views (was visible before)
  *
  * Cleans up after itself (admin deleteUser cascades entries → predictions).
  */
@@ -88,17 +93,19 @@ async function main() {
     const { data: challenges } = await clientA.from('challenges').select('id, kind');
     const fullId = challenges!.find((c) => c.kind === 'full')!.id;
 
-    // submitted_at set so the entry participates in the leaderboard views
-    // (Stage 9 item 4 gate) — needed for the banned-hidden-from-boards checks.
-    const submittedNow = new Date().toISOString();
+    // Created as DRAFTS (no submitted_at): the prediction-write checks below
+    // require an editable entry, and Stage 9 item 20 makes a submitted entry
+    // read-only server-side. The script submits entryA later, both to exercise
+    // the submit→read-only / withdraw→re-open transitions and so it appears on
+    // the leaderboard views for the banned-hidden checks.
     const { data: entryA } = await clientA
       .from('challenge_entries')
-      .insert({ user_id: userA, challenge_id: fullId, hardcore: false, submitted_at: submittedNow })
+      .insert({ user_id: userA, challenge_id: fullId, hardcore: false })
       .select('id')
       .single();
     const { data: entryB } = await clientB
       .from('challenge_entries')
-      .insert({ user_id: userB, challenge_id: fullId, hardcore: true, submitted_at: submittedNow })
+      .insert({ user_id: userB, challenge_id: fullId, hardcore: true })
       .select('id')
       .single();
     if (!entryA || !entryB) throw new Error('joining the Full challenge failed — cannot continue');
@@ -381,6 +388,72 @@ async function main() {
       .eq('match_id', futureM1.id);
     check('21. admin CAN read an unlocked prediction', (r21 ?? []).length === 1, `${r21?.length} rows`);
 
+    // --- submit finalizes / withdraw re-opens (Stage 9 item 20) -------------------
+    // entryA is still a draft here, with predictions on futureM1 and the
+    // kicked-off lockedMatch. Submit it → editing must close server-side.
+    {
+      const { error } = await clientA
+        .from('challenge_entries')
+        .update({ submitted_at: new Date().toISOString() })
+        .eq('id', entryA.id);
+      if (error) throw new Error(`submit A: ${error.message}`);
+    }
+
+    // 22. submitted entry: a future-match prediction update affects 0 rows
+    const { data: s22 } = await clientA
+      .from('match_predictions')
+      .update({ outcome: 'home' })
+      .eq('entry_id', entryA.id)
+      .eq('match_id', futureM1.id)
+      .select('id');
+    check('22. submitted entry refuses a future-match edit', (s22 ?? []).length === 0, `${s22?.length} rows`);
+
+    // 23. submitted entry: a gen-0 bracket pick update affects 0 rows
+    const { data: s23 } = await clientA
+      .from('bracket_predictions')
+      .update({ winner_team_id: lockedMatch.away_team_id! })
+      .eq('entry_id', entryA.id)
+      .eq('generation', 0)
+      .eq('slot', 73)
+      .select('slot');
+    check('23. submitted entry refuses a gen-0 bracket edit', (s23 ?? []).length === 0, `${s23?.length} rows`);
+
+    // Withdraw → editing re-opens (clears submitted_at, deletes nothing).
+    {
+      const { error } = await clientA
+        .from('challenge_entries')
+        .update({ submitted_at: null })
+        .eq('id', entryA.id);
+      if (error) throw new Error(`withdraw A: ${error.message}`);
+    }
+
+    // 24. after withdraw, a future-match edit succeeds again
+    const { data: s24 } = await clientA
+      .from('match_predictions')
+      .update({ outcome: 'away' })
+      .eq('entry_id', entryA.id)
+      .eq('match_id', futureM1.id)
+      .select('outcome');
+    check('24. withdraw re-opens a future-match edit', s24?.[0]?.outcome === 'away', `outcome ${s24?.[0]?.outcome}`);
+
+    // 25. the kicked-off match stays locked through submit AND withdraw
+    const { data: s25 } = await clientA
+      .from('match_predictions')
+      .update({ outcome: 'home' })
+      .eq('entry_id', entryA.id)
+      .eq('match_id', lockedMatch.id)
+      .select('id');
+    check('25. kicked-off match stays locked across submit/withdraw', (s25 ?? []).length === 0, `${s25?.length} rows`);
+
+    // Re-submit so entryA is on the leaderboard for the banned-hidden check.
+    {
+      const { error } = await clientA
+        .from('challenge_entries')
+        .update({ submitted_at: new Date().toISOString() })
+        .eq('id', entryA.id);
+      if (error) throw new Error(`re-submit A: ${error.message}`);
+    }
+
     // --- banned user loses access (Stage 8) ----------------------------------------
 
     // Visible on the leaderboard view before the ban (entry exists for A).
@@ -411,7 +484,7 @@ async function main() {
       .from('match_predictions')
       .insert({ entry_id: entryA.id, match_id: futureM3!.id, outcome: 'home' });
     check(
-      '22. banned user prediction insert refused',
+      '26. banned user prediction insert refused',
       e22?.code === '42501',
       e22 ? `code ${e22.code}` : 'insert unexpectedly succeeded',
     );
@@ -423,7 +496,7 @@ async function main() {
       .eq('entry_id', entryA.id)
       .eq('match_id', futureM1.id)
       .select('id');
-    check('23. banned user prediction update affects 0 rows', (u23 ?? []).length === 0, `${u23?.length} rows`);
+    check('27. banned user prediction update affects 0 rows', (u23 ?? []).length === 0, `${u23?.length} rows`);
 
     // 24. banned: joining another challenge refused
     const groupsId = challenges!.find((c) => c.kind === 'groups')!.id;
@@ -431,7 +504,7 @@ async function main() {
       .from('challenge_entries')
       .insert({ user_id: userA, challenge_id: groupsId });
     check(
-      '24. banned user cannot join a challenge',
+      '28. banned user cannot join a challenge',
       e24?.code === '42501',
       e24 ? `code ${e24.code}` : 'insert unexpectedly succeeded',
     );
@@ -442,7 +515,7 @@ async function main() {
       .select('user_id')
       .eq('user_id', userA);
     check(
-      '25. banned user hidden from leaderboards',
+      '29. banned user hidden from leaderboards',
       visibleBefore && (r25 ?? []).length === 0,
       `before ${pre25?.length}, after ${r25?.length}`,
     );

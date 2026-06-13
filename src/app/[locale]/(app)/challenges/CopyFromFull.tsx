@@ -1,6 +1,5 @@
 "use client";
 
-import { Copy } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
@@ -58,9 +57,8 @@ export default function CopyFromFull({
         type="button"
         onClick={run}
         disabled={pending}
-        className="inline-flex items-center gap-1.5 self-start rounded-full border border-pitch-700 bg-pitch-800 px-4 py-2 text-xs font-semibold text-text-primary transition-colors hover:border-gold-500/40 disabled:opacity-50"
+        className="self-start rounded-full border border-pitch-700 bg-pitch-800 px-4 py-2 text-xs font-semibold text-text-primary transition-colors hover:border-gold-500/40 disabled:opacity-50"
       >
-        <Copy className="size-3.5" aria-hidden="true" />
         {pending ? t("copying") : t("button")}
       </button>
       {result &&

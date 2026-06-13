@@ -10,6 +10,7 @@ import { isChallengeLocked } from "@/engine/locks";
 import { toChallengeLockState } from "@/lib/predictions/derive";
 import type { ChallengeDTO, PlayerSuggestion } from "@/lib/predictions/types";
 
+import EntrySubmitControls from "../EntrySubmitControls";
 import { saveFunAnswer } from "./actions";
 
 export interface FunQuestionDTO {
@@ -99,6 +100,7 @@ function NumericInput({
 
 export default function FunForm({
   entryId,
+  submitted,
   challenge,
   questions,
   initialAnswers,
@@ -106,6 +108,8 @@ export default function FunForm({
   serverNow,
 }: {
   entryId: string;
+  /** Submitted entries are read-only until withdrawn (Stage 9 item 20). */
+  submitted: boolean;
   challenge: ChallengeDTO;
   questions: FunQuestionDTO[];
   initialAnswers: FunAnswerDTO[];
@@ -125,7 +129,8 @@ export default function FunForm({
     const i = setInterval(tick, 30_000);
     return () => clearInterval(i);
   }, [serverNowMs]);
-  const readOnly = isChallengeLocked(toChallengeLockState(challenge), new Date(nowMs));
+  const challengeLocked = isChallengeLocked(toChallengeLockState(challenge), new Date(nowMs));
+  const readOnly = challengeLocked || submitted;
 
   const initialMap = useMemo(
     () => new Map<number, LocalAnswer>(initialAnswers.map((a) => [a.questionId, toLocal(a)])),
@@ -198,9 +203,13 @@ export default function FunForm({
             {t("progress", { done: answered, total: questions.length })}
           </span>
         </div>
-        {readOnly ? (
+        {challengeLocked ? (
           <p className="rounded-xl border border-pitch-700 bg-pitch-900 px-4 py-2.5 text-xs text-danger">
             {t("lockedBanner")}
+          </p>
+        ) : submitted ? (
+          <p className="rounded-xl border border-success/30 bg-pitch-900 px-4 py-2.5 text-xs text-success">
+            {tp("submittedBanner")}
           </p>
         ) : (
           challenge.locksAt && (
@@ -309,7 +318,18 @@ export default function FunForm({
         })}
       </ol>
 
-      <p className="pb-2 text-center text-[11px] text-text-muted">{t("autosaveHint")}</p>
+      <p className="text-center text-[11px] text-text-muted">{t("autosaveHint")}</p>
+
+      {/* Submit / Withdraw at the end of the flow (Stage 9 items 19 + 20). */}
+      {!challengeLocked && (
+        <EntrySubmitControls
+          entryId={entryId}
+          submitted={submitted}
+          locked={false}
+          missing={questions.length - answered}
+          variant="flow"
+        />
+      )}
     </section>
   );
 }

@@ -32,7 +32,7 @@ export default async function FunPage({
 
   const { data: entry } = await supabase
     .from("challenge_entries")
-    .select("id")
+    .select("id, submitted_at")
     .eq("user_id", user!.id)
     .eq("challenge_id", challenge!.id)
     .maybeSingle();
@@ -75,6 +75,7 @@ export default async function FunPage({
   return (
     <FunForm
       entryId={entry!.id}
+      submitted={entry!.submitted_at != null}
       challenge={challengeDTO}
       questions={questionDTOs}
       initialAnswers={answerDTOs}
