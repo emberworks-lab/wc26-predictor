@@ -23,6 +23,12 @@
   (achontoroh=admin, bibliary, Demanlol); 4 group matches finished and scored
   (MEX 2-0 RSA, KOR 2-1 CZE, CAN 1-1 BIH, USA 4-1 PAR); achontoroh has real
   points (GROUP_OUTCOME 3 + HC_EXACT_SCORE 5). Cron writing matchday snapshots.
+- **Sync redeploy verified (2026-06-13):** the deferred v4 sync redeploy (PR #16
+  ranged fun scoring) is redeployed AND verified — live path intact, recompute
+  idempotent on real data, deployed bundle confirmed ranged, ranged scoring proven
+  on the local stack. The deployed sync already runs ranged fun scoring, so **no
+  redeploy is needed before entering fun answers after the final** (see Stage-log
+  entry "Sync redeploy verification — June 13, 2026").
 - Next up: post-groups TODO list (see `docs/SHIP_REPORT.md`): verify Playoff
   auto-open ~Jun 27-28 + pin real-thirds annex test; enter fun correct answers
   after the final (Jul 19); `cron.unschedule` the 3 jobs + un-pause PantryPal
@@ -238,6 +244,39 @@
 
 ## Stage log
 
+### Sync redeploy verification — June 13, 2026
+- **Verify-only session** (branch `chore/verify-sync-redeploy`, no application code
+  changed) confirming the deferred v4 sync Edge Function redeploy (PR #16 ranged fun
+  scoring), which Anton redeployed himself on 2026-06-13. Redeploy timestamp:
+  **2026-06-13 11:23:58 UTC** (function version 4 `updated_at`). Highest-risk concern —
+  the live-critical path (fixtures → standings → recompute → leaderboard) — proven first.
+- **1. Live path intact (production self-proof).** Post-redeploy fixtures **cron** run
+  `sync_log` id 128 (12:05:01 UTC) `status=ok` (changed 0, api_calls 1, standings_rows
+  48) — fixtures→standings on the new bundle. Post-redeploy **recompute** id 127
+  (11:24:16 UTC) `status=ok` (entries 4, rows 2). Manually invoked `mode=stats`
+  (no stats cron had fired post-redeploy) → `{ok, scorers:10, standings_rows:48}` HTTP
+  200. No errors in any post-redeploy run.
+- **2. Recompute idempotent on real data.** Baseline points checksum (2 rows, sum 8,
+  md5 `7cb806dfc51a8f4d78661e68c405934d`) → invoked `mode=recompute` (`{ok, entries:4,
+  rows:2}`) → re-checksum **byte-identical**. Totals unchanged (achontoroh Full 3 global
+  / 5 hardcore; achontoroh groups+fun and Demanlol Full all 0). The new bundle did not
+  alter live group/KO scoring.
+- **3a. Deployed bundle is the ranged version.** `get_edge_function` deployed source
+  contains `range_index`, `bucketOf`, `scoreFunQuestion` returning `{global, hardcore}`,
+  `funHardcoreExactMax: 5`, and the bucket math (`d===0`→full `maxPts`, `d===1`→half
+  `round(maxPts/2)`, hardcore closeness `round(max(0, 5·(1−|exact−real|/tol)))`).
+  Confirms PR #16 shipped, not the old bundle.
+- **3b. Ranged scoring correctness (local stack, throwaway — never prod).** New
+  self-cleaning `scripts/verify-fun-ranges.ts` (`pnpm verify:fun-ranges`) drives the
+  REAL `runRecompute` (the module esbuild inlines into the deployed function) over
+  throwaway ranged fun entries on a local Supabase stack (`supabase db reset`),
+  **10/10 checks PASS**: exact bucket → full (10), adjacent → half (5), two buckets away
+  → 0, casual stray exact → full global + NO hardcore (gated), hardcore exact==actual →
+  closeness 5, hardcore exact off-by-12 → closeness 3, ranged recompute idempotent. No
+  PRODUCTION `fun_question` correct answer was ever set (would have scored all real fun
+  entries) — local/throwaway only.
+- **Outcome: PASS.** The 3 real entries were never mutated; no prod fun answer set.
+
 ### Stage 9 — iteration 3 — June 13, 2026
 - Two PRs, both merged (incremental ship ahead of the Jun 18 02:00 UTC main lock).
   **PR #15** = the prediction-entry items (21, 19, 20, 22, 24); **PR #16** = Fun
@@ -300,11 +339,14 @@
   UK strings render. Mobile 375px screenshots: A–L in two even rows, iconless tab
   bar Tournament-first, text wordmark, flags intact, submitted card with Withdraw.
   Throwaway users self-cleaned (prod back to 3 real profiles).
-- **Sync Edge Function redeployed (done):** re-bundled via `scripts/bundle-sync.mjs`
-  and deployed as **version 4** (CLI `functions deploy sync --no-verify-jwt --use-api`
-  from a temp workdir) so deployed recompute uses the new fun ranged scoring. Manual
-  `?mode=recompute` after deploy returned `{ok, entries:4, rows:2}` — idempotent, same
-  real points as before (no fun rows yet; 0 fun actuals until after the final).
+- **Sync Edge Function redeployed (done + verified 2026-06-13):** re-bundled via
+  `scripts/bundle-sync.mjs` and deployed as **version 4** (CLI `functions deploy sync
+  --no-verify-jwt --use-api` from a temp workdir) so deployed recompute uses the new fun
+  ranged scoring. Manual `?mode=recompute` after deploy returned `{ok, entries:4,
+  rows:2}` — idempotent, same real points as before (no fun rows yet; 0 fun actuals until
+  after the final). **Verified end-to-end** in a follow-up verify-only session — see the
+  "Sync redeploy verification — June 13, 2026" Stage-log entry below. No deferred
+  follow-up remains for this redeploy.
 
 ### Stage 9 — iteration 2 — June 13, 2026
 - Branch `stage/9-iteration-2` → PR #12 → merged. 167 unit tests green (was 160;

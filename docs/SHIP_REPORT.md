@@ -126,9 +126,11 @@ pnpm build` is the full local gate (154 unit tests). Migrations live in
       the real day), and that real R32 pairings resolve in the Tournament tab. Add the
       unit-test pinning the **real qualified-thirds combination** to its annex row.
 - [ ] **First R32 kickoff:** confirm Playoff + Full knockout picks lock correctly.
-- [ ] **After the final (July 19):** enter the **fun-challenge correct answers** in
-      `/admin/fun` (Golden Ball/Boot, totals, etc.) — recompute runs on each save and
-      finalizes the fun leaderboard.
+- [ ] **After the final (July 19):** the deployed sync is **already the ranged-Fun
+      version** (v4, verified 2026-06-13 — see STATE.md "Sync redeploy verification"),
+      so no redeploy is needed first. Just enter the **fun-challenge correct answers** in
+      `/admin/fun` (Golden Ball/Boot, totals/ranges, etc.) — recompute runs on each save
+      and finalizes the fun leaderboard.
 - [ ] **After the tournament:** `cron.unschedule` the three sync jobs (July 19+), and
       **un-pause the PantryPal Supabase project** (it was paused to free the 2-active-free-
       project slot for WC26 — see STATE.md).
