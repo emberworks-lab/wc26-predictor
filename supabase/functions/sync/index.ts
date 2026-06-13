@@ -19,9 +19,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-import { computeGroupTable } from '@/engine/groupTable';
-import type { GroupId, PlayedMatch } from '@/engine/types';
-import { GROUP_IDS } from '@/engine/types';
+import type { GroupId } from '@/engine/types';
 import { FootballApiClient } from '@/lib/football-api/client';
 import { extractTeams, mapMatch } from '@/lib/football-api/mappers';
 import { mapScorer } from '@/lib/football-api/mappers';
@@ -35,67 +33,11 @@ import {
   loadTeams,
   maybeOpenPlayoff,
   runRecompute,
-  type DbMatch,
   type SyncDb,
 } from '@/lib/sync/recompute';
+import { refreshStandings } from '@/lib/sync/standings';
 
 type Supabase = SyncDb;
-
-// ---------------------------------------------------------------------------
-// Standings cache (engine-computed — Article 13 tiebreakers, not the API's)
-// ---------------------------------------------------------------------------
-
-async function refreshStandings(supabase: Supabase, matches: DbMatch[]) {
-  const { codeById, idByCode } = await loadTeams(supabase);
-  const rows: Array<Record<string, unknown>> = [];
-
-  for (const group of GROUP_IDS) {
-    const inGroup = matches.filter(
-      (m) => m.stage === 'group' && m.group_code === group,
-    );
-    const teamCodes = [
-      ...new Set(
-        inGroup
-          .flatMap((m) => [m.home_team_id, m.away_team_id])
-          .filter((id): id is number => id != null)
-          .map((id) => codeById.get(id)!),
-      ),
-    ];
-    if (teamCodes.length === 0) continue;
-    const played: PlayedMatch[] = inGroup
-      .filter((m) => m.status === 'finished')
-      .map((m) => ({
-        home: codeById.get(m.home_team_id!)!,
-        away: codeById.get(m.away_team_id!)!,
-        homeGoals: m.home_score!,
-        awayGoals: m.away_score!,
-      }));
-    for (const row of computeGroupTable(played, teamCodes)) {
-      rows.push({
-        group_code: group,
-        team_id: idByCode.get(row.team)!,
-        position: row.position,
-        played: row.played,
-        won: row.won,
-        drawn: row.drawn,
-        lost: row.lost,
-        goals_for: row.goalsFor,
-        goals_against: row.goalsAgainst,
-        goal_difference: row.goalDiff,
-        points: row.points,
-        updated_at: new Date().toISOString(),
-      });
-    }
-  }
-
-  if (rows.length > 0) {
-    const { error } = await supabase
-      .from('standings_cache')
-      .upsert(rows, { onConflict: 'group_code,team_id' });
-    if (error) throw new Error(`standings upsert: ${error.message}`);
-  }
-  return rows.length;
-}
 
 // ---------------------------------------------------------------------------
 // mode=fixtures
@@ -135,6 +77,7 @@ async function syncFixtures(supabase: Supabase, api: FootballApiClient) {
   const byApiId = new Map(dbMatches.map((m) => [m.api_id, m]));
 
   let changed = 0;
+  let resultChanged = false;
   const newlyFinished: number[] = [];
 
   for (const apiMatch of apiMatches) {
@@ -197,6 +140,11 @@ async function syncFixtures(supabase: Supabase, api: FootballApiClient) {
     changed += 1;
     if (existing.status !== 'finished' && next.status === 'finished') {
       newlyFinished.push(mapped.api_id);
+    } else if (existing.status === 'finished' || next.status === 'finished') {
+      // A finished match's row changed without a fresh finish: a provider
+      // post-hoc correction, or the feed restoring truth after an admin
+      // cleared manually_corrected. Points must be rebuilt either way.
+      resultChanged = true;
     }
     Object.assign(existing, next);
   }
@@ -245,13 +193,14 @@ async function syncFixtures(supabase: Supabase, api: FootballApiClient) {
 
   // --- points recompute on any result/bracket change ----------------------------
   let recompute: { entries: number; rows: number } | null = null;
-  if (newlyFinished.length > 0 || assignments.length > 0 || playoffOpened) {
+  if (newlyFinished.length > 0 || resultChanged || assignments.length > 0 || playoffOpened) {
     recompute = await runRecompute(supabase);
   }
 
   return {
     changed,
     newly_finished: newlyFinished.length,
+    result_changed: resultChanged,
     slots_assigned: assignments.length,
     standings_rows: standingsRows,
     playoff_opened: playoffOpened,

@@ -13,25 +13,36 @@ export default async function Header() {
   } = await supabase.auth.getUser();
 
   let displayName: string | null = null;
+  let isAdmin = false;
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("display_name")
+      .select("display_name, role, banned_at")
       .eq("id", user.id)
       .maybeSingle();
     displayName = profile?.display_name ?? null;
+    isAdmin = profile?.role === "admin" && profile.banned_at === null;
   }
 
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between gap-2 border-b border-pitch-700 bg-pitch-900/90 px-4 py-3 backdrop-blur-sm">
       <Link
         href="/"
-        className="whitespace-nowrap text-lg font-bold tracking-tight text-gold-400"
+        className="min-w-0 truncate text-lg font-bold tracking-tight text-gold-400"
       >
         {t("wordmark")}
       </Link>
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <LocaleSwitcher />
+        {isAdmin && (
+          <Link
+            href="/admin"
+            aria-label={t("admin")}
+            className="rounded-full border border-pitch-700 bg-pitch-800 px-2.5 py-1.5 text-xs transition-colors hover:border-gold-500"
+          >
+            ⚙️
+          </Link>
+        )}
         {user ? (
           <Link
             href="/profile"

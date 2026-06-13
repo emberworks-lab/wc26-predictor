@@ -77,3 +77,10 @@ export interface LocalPick {
   awayScore?: number;
   aetPens?: boolean;
 }
+
+/** A player suggestion for the fun pick questions (shared with admin). */
+export interface PlayerSuggestion {
+  name: string;
+  team: string;
+  flag: string;
+}

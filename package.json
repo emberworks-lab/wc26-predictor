@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "seed": "tsx scripts/seed.ts",
-    "verify:stage7": "tsx scripts/verify-stage7.ts"
+    "verify:rls": "tsx scripts/rls-check.ts",
+    "verify:stage7": "tsx scripts/verify-stage7.ts",
+    "verify:stage8": "tsx scripts/verify-stage8.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

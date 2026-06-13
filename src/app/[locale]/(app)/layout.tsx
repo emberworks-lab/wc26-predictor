@@ -31,6 +31,11 @@ export default async function AppLayout({
   if (!profile) {
     redirect({ href: "/onboarding", locale });
   }
+  // Banned users lose app access immediately (RLS already refuses their
+  // writes and hides them from boards; the auth-level ban stops sign-ins).
+  if (profile!.banned_at !== null) {
+    redirect({ href: { pathname: "/sign-in", query: { banned: "1" } }, locale });
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-pitch-950">

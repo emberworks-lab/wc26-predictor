@@ -4,6 +4,34 @@
 
 ## Current status
 
+- **Stage 8 COMPLETE — code, prod, AND shipped.** Admin area live, security
+  suite green against prod, ship report delivered (`docs/SHIP_REPORT.md`).
+  Applied to prod Jun 13:
+  1. **Migration 9** (`20260612130000_admin.sql`) — `a.chontoroh@gmail.com`
+     profile set to `role = 'admin'`. **Migration 10**
+     (`20260612140000_search_path_hardening.sql`) — pinned `search_path` on
+     `ko_stage_index` / `ko_round_start` (advisor WARNs).
+  2. **Sync Edge Function redeployed** — `refreshStandings` extracted to
+     `src/lib/sync/standings.ts` (shared with the admin correction action);
+     fixtures mode now also recomputes on a *changed-but-not-newly-finished*
+     finished match (`resultChanged`), so clearing a correction + re-sync
+     restores points. Bundled via `scripts/bundle-sync.mjs`, deployed
+     `--no-verify-jwt`.
+  3. The Playoff challenge has NOT auto-opened yet (group stage in progress —
+     4/72 group matches finished as of Jun 13). Auto-open is a post-groups TODO.
+- **The tournament is live with real users.** 3 real profiles
+  (achontoroh=admin, bibliary, Demanlol); 4 group matches finished and scored
+  (MEX 2-0 RSA, KOR 2-1 CZE, CAN 1-1 BIH, USA 4-1 PAR); achontoroh has real
+  points (GROUP_OUTCOME 3 + HC_EXACT_SCORE 5). Cron writing matchday snapshots.
+- Next up: post-groups TODO list (see `docs/SHIP_REPORT.md`): verify Playoff
+  auto-open ~Jun 27-28 + pin real-thirds annex test; enter fun correct answers
+  after the final (Jul 19); `cron.unschedule` the 3 jobs + un-pause PantryPal
+  after the tournament. **Stage 9** backlog (`prompts/stage-9-improvements.md`)
+  is a separate iteration.
+- Live URL: **https://wc26-predictor-gilt.vercel.app** (en + uk verified). CI green.
+
+### Stage 7 status (prior)
+
 - **Stage 7 COMPLETE — code AND prod.** The two manual prod steps were applied
   Jun 12:
   1. **Migration 8 applied to prod** as remote version `20260612110000`
@@ -192,6 +220,67 @@
 | Google OAuth | ✅ fully configured server-side: OAuth client created (Google Cloud `wc26-predictor`), Supabase Google provider enabled via `supabase config push` (see supabase/config.toml), consent screen published to production, site_url + redirect URLs set. Credentials in `.secrets/google_oauth`. Stage 4 builds the UI/flow only |
 
 ## Stage log
+
+### Stage 8 — June 13, 2026
+- Branch `stage/8-admin-ship` → PR → merged. 154 unit tests green (stage adds
+  admin UI + server actions + verification scripts; correctness proven against
+  prod via scripts). Final report in `docs/SHIP_REPORT.md`.
+- **Admin area** `/admin` (role-gated: `getAdminUserId` layout guard +
+  per-action re-check; service-role writes, RLS has no admin-write policies by
+  design). Sections: **Sync & logs** (force fixtures/stats/recompute buttons +
+  filterable `sync_log` viewer — read through the viewer's own client, so it
+  also exercises the `is_admin()` policy), **Matches** (search + per-match
+  editor → `manually_corrected` flag + recompute), **Challenges**
+  (open/locked/auto override), **Users** (ban/unban/rename/delete-entry; admins
+  & self protected; emails via service client), **Fun answers** (correct-answer
+  form, player picks reuse the user-facing suggestion list). Header gained an
+  admin-only ⚙️ link; `(app)` layout redirects banned users to
+  `/sign-in?banned=1` (sign-in page shows a notice instead of looping).
+- **Decision — admin writes via service role, not RLS**: keeps the RLS surface
+  small (the rls_policies migration always intended this). Server actions are
+  the trust boundary; each calls `getAdminUserId()` then `createServiceClient()`.
+- **Decision — manual correction goes through the deployed sync function**:
+  `correctMatch`/`clearCorrection`/`saveFunCorrectAnswer` call the sync Edge
+  Function's `recompute` mode over HTTP (`src/lib/sync/invoke.ts`) so points
+  rebuild + the `sync_log`→snapshot trigger fire on the SAME path as cron — no
+  separate recompute code. Standings are refreshed inline via the shared
+  `refreshStandings`.
+- **Sync function fix (redeployed)**: fixtures mode now recomputes when a
+  *finished* match's row changes without a fresh finish (`resultChanged`) — the
+  case where clearing a correction lets the feed restore truth. Without it,
+  `clearCorrection`'s re-sync would restore the score but not the points.
+- **Refactor**: `refreshStandings` moved out of the Edge Function into
+  `src/lib/sync/standings.ts` (shared by the function bundle + the admin action);
+  `PlayerPicker` extracted to `src/components/PlayerPicker.tsx` and the fun
+  suggestion-builder to `src/lib/predictions/funSuggestions.ts` (one list for the
+  user form AND admin — fun pick scoring is exact-string-match).
+- **Security suite** consolidated into `scripts/rls-check.ts` (14 → **25
+  checks**, ALL PASS vs prod): added non-admin denial on `sync_log`/`matches`/
+  `challenges`/`fun_questions`/own-role, admin positive reads, and full
+  banned-user lockout (insert/update/join refused, hidden from boards). Wired
+  into nightly CI (`.github/workflows/security.yml`, `pnpm verify:rls`; repo
+  secrets set). **`scripts/verify-stage8.ts`** (15 checks, ALL PASS vs prod,
+  self-cleaning): proves manual correction → flag protects from sync overwrite →
+  recompute → leaderboard, clear-flag → feed restored → points revert, challenge
+  override, fun actuals. Safety: only ever corrects a finished prediction-free
+  match + a throwaway user, aborts if a snapshot boundary could be crossed,
+  restores everything on exit.
+- **Advisors**: pinned `search_path` on the 2 flagged migration-8 helpers
+  (migration 10). Remaining security WARNs accepted (boolean RLS helpers must
+  stay anon/authenticated-executable; `redistribute_entry` intentionally
+  authenticated; `pg_net`-in-public + Auth MFA/leaked-password left for a
+  friends' game). Performance advisors all INFO (tiny tables) — not actioned.
+- **UI verified** on local dev against prod DB (cookie-injection pattern, admin +
+  non-admin throwaway users, mobile 375px + desktop): all 5 admin sections render
+  and function (match editor expand, filter, player picker suggests "Kylian
+  Mbappé", challenge override toggles, user ban/rename buttons gated correctly),
+  non-admin → `/admin` redirects to `/challenges`, no header gear for non-admins.
+  **Fixed a mobile header overflow** (the new ⚙️ gear pushed the header past
+  375px with a long account name) — wordmark now `min-w-0 truncate`, right
+  cluster `shrink-0`. Throwaway users + the temp mint script cleaned up after
+  (prod back to 3 real profiles / 4 finished matches / real points only).
+- NOT in this stage: Playoff auto-open verification (post-groups), real-thirds
+  annex test pin (needs group-stage end), Stage 9 backlog (separate iteration).
 
 ### Stage 7 — June 12, 2026
 - Branch `stage/7-playoff-fun-redistribution` → PR → merged. 154 unit tests green
