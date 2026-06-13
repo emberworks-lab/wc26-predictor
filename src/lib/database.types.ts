@@ -221,6 +221,7 @@ export type Database = {
           id: number
           numeric_answer: number | null
           question_id: number
+          range_index: number | null
           text_answer: string | null
           updated_at: string
         }
@@ -230,6 +231,7 @@ export type Database = {
           id?: never
           numeric_answer?: number | null
           question_id: number
+          range_index?: number | null
           text_answer?: string | null
           updated_at?: string
         }
@@ -239,6 +241,7 @@ export type Database = {
           id?: never
           numeric_answer?: number | null
           question_id?: number
+          range_index?: number | null
           text_answer?: string | null
           updated_at?: string
         }
@@ -282,6 +285,7 @@ export type Database = {
           key: string
           max_pts: number
           qtype: Database["public"]["Enums"]["fun_question_type"]
+          ranges: Json | null
           sort_order: number
           tolerance: number | null
         }
@@ -293,6 +297,7 @@ export type Database = {
           key: string
           max_pts: number
           qtype: Database["public"]["Enums"]["fun_question_type"]
+          ranges?: Json | null
           sort_order?: number
           tolerance?: number | null
         }
@@ -304,6 +309,7 @@ export type Database = {
           key?: string
           max_pts?: number
           qtype?: Database["public"]["Enums"]["fun_question_type"]
+          ranges?: Json | null
           sort_order?: number
           tolerance?: number | null
         }

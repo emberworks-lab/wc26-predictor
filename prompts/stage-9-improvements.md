@@ -14,76 +14,6 @@
 
 ## Backlog
 
-### 19. Submit button not discoverable + must also live INSIDE the flow — `open` · small · P0-prelock
-*2026-06-13, manual testing after iter 2.*
-Submit shipped in iter 1 (item #4) but only on the challenge CARD — Anton didn't find it
-for Full/Groups (he only noticed it in Fun). The Submit button must ALSO appear at the END
-of the prediction flow itself (after the champion summary / last question), prominent, as
-the natural "I'm done" action. Keep the card Submit too. Same action, two entry points.
-
-### 20. Submit must FINALIZE the entry (lock editing after submit) — `open` · small-medium · P0-prelock · REVERSES iter-1 design
-*2026-06-13, product decision by Anton.*
-Iter 1 shipped: after Submit you can still freely edit until the challenge locks ("Edit
-predictions", submitted stays submitted). Anton wants the OPPOSITE: **once you submit, the
-entry is read-only** — no more editing — EXCEPT the Full-challenge knockout redistribution
-mechanic after the group stage (already specced, falling multiplier). Applies to Full,
-Groups, Fun.
-Implementation: gate edits on `submitted_at is not null` (server-side: tighten the
-prediction-write RLS/server actions so a submitted entry rejects writes, same as a locked
-challenge; redistribution path is the only allowed post-submit write, on Full KO rows).
-**DECISION (Anton, 2026-06-13): option A — Withdraw button, NO erase.** Semantics:
-- Submit → entry read-only + on the leaderboard.
-- **Withdraw** = clears `submitted_at` only. It does NOT delete any predictions. You drop
-  off the leaderboard and editing re-opens — but ONLY for matches that haven't kicked off
-  (the per-match kickoff lock is independent and always applies). Already-played matches
-  stay locked; your existing correct picks there are preserved and resume scoring on
-  re-submit. There is NO reset/erase of predictions.
-- Available only while the challenge itself is still unlocked (before 2026-06-18 02:00 UTC
-  for Full/Groups/Fun). After the challenge locks, neither edit nor withdraw is possible.
-- Full-challenge knockout redistribution remains the separate post-group-stage mechanic.
-Rationale recorded: erase would punish a legitimate edit with zero anti-cheat benefit
-(past matches are already locked, so withdrawing can never improve a past pick).
-
-### 21. Join must drop the user straight INTO the prediction flow — `open` · small · P0-prelock
-*2026-06-13, manual testing after iter 2.*
-Clicking "Join" on a challenge creates the entry but leaves the user on the cards page.
-It should immediately navigate into that challenge's prediction flow so they can start
-filling it. (Pairs with #19 — the flow then ends with the Submit button.)
-
-### 22. Bubble strip: balanced wrap + stray scrollbar — `open` · small · P0-prelock
-*2026-06-13, manual testing after iter 2.*
-After iter 1's flex-wrap fix, the A–L (and KO-round) bubble strip still shows a scrollbar
-on some widths, and wraps ugly (11 in row 1, 1 orphan in row 2). Wanted: no scrollbar at
-all; when the strip doesn't fit one line, balance it across two roughly-equal rows
-(e.g. 6+6 for groups) instead of fill-then-orphan.
-
-### 23. Fun challenge: range options for numeric questions + redefine hardcore — `open` · medium-large · research + product decision
-*2026-06-13, feature idea + answers "why does Fun have hardcore?".*
-Today the 6 numeric Fun questions are free-number inputs; hardcore mode on Fun is currently
-meaningless. New design:
-- Casual: each numeric question becomes a **pick among ~5 ranges** (e.g. total goals:
-  `<X`, `X–Y`, … `Z+`). Scoring: exact range = full points, adjacent range = partial
-  (replaces the continuous closeness formula for ranged questions).
-- Hardcore: pick the range AND optionally enter an **exact number** for a bonus (this is
-  what hardcore MEANS for Fun — gives the mode a purpose).
-- RESEARCH per question: pull totals from the last 3–4 World Cups (goals, red cards,
-  shootouts, penalties, own goals, golden-boot tally, fastest goal, highest-scoring match),
-  then **scale up proportionally** for WC2026's larger format (104 matches vs 64, 48 teams
-  vs 32) to derive sensible range buckets. Document the derivation.
-- Player picks (Golden Ball/Boot) and yes/no questions stay as-is.
-- TIMING DECISION (Anton, 2026-06-13): **do it NOW, before the June 18 lock**, so friends
-  answer in the new ranged format. Schema + scoring change with a migration for the few
-  live Fun entries (re-map any existing free-number answer to its containing range; keep
-  the exact number as the hardcore value). Ship inside the deadline-sensitive iter 3.
-
-### 24. Branding round 2: icons look bad — `open` · small-medium · P0-prelock (tab order) / P1 (rest)
-*2026-06-13, manual testing after iter 2.*
-Iter 2 replaced emojis with SVG icons but Anton finds them poor, the logo mark worst.
-- Reorder the main tabs so **Tournament is first** (P0 — trivial, do now).
-- **DECISION (Anton, 2026-06-13): go ICONLESS.** Remove the decorative SVG icons and the
-  current logo mark; lean on clean typography for nav + cards. A simple text/typographic
-  wordmark is fine for the top-left; no pictorial logo. Team FLAG emojis stay (data).
-
 ### 9. Match details view — `open` · medium · research
 *2026-06-13.*
 Click a match (Tournament tab; maybe also in wizards) → detail view: what CAN we show?
@@ -135,6 +65,46 @@ which such predictions exist for WC26 in machine-readable/transcribable form; co
 caution — facts (who advances) are fine, verbatim articles are not.
 
 ## Done
+
+### 21. Join drops the user straight INTO the prediction flow — ✅ PR #15 (Stage 9 iter 3)
+*Fixed 2026-06-13.* `joinChallenge` now redirects to `/challenges/<kind>` after the
+insert (carries `kind` + `getLocale()`), instead of leaving the user on the cards page.
+Verified E2E: submitting the Groups join form lands on `/en/challenges/groups`.
+
+### 19. Submit button at the END of the flow (not only the card) — ✅ PR #15 (Stage 9 iter 3)
+*Fixed 2026-06-13.* Shared `EntrySubmitControls` renders the Submit/Withdraw CTA both on
+the challenge card AND at the end of every flow (Full/Groups/Fun/Playoff). Verified on the
+deployed URL: "Ready to submit?" + "Submit predictions" render at the bottom of the flow.
+
+### 20. Submit FINALIZES the entry (read-only; Withdraw, no erase) — ✅ PR #15 (Stage 9 iter 3)
+*Fixed 2026-06-13.* Reverses iter-1's edit-after-submit. Migration
+`20260613120000_submit_locks_predictions` adds `entry_is_submitted()` into
+`can_edit_match_prediction` / `can_edit_bracket` (gen 0) + the `fun_answers` policies, so a
+submitted entry rejects prediction writes server-side; redistribution (gen>0) is the sole
+allowed exception. `withdrawEntry` clears `submitted_at` only (no prediction deleted),
+re-opening edits for not-yet-kicked-off matches while the challenge is unlocked. Verified:
+`verify:rls` 22–25 (submit→read-only, withdraw→re-open, kickoff stays locked); deployed-URL
+SSR (submitted banner + Withdraw, then Submit returns after withdraw).
+
+### 22. Bubble strip: balanced wrap, no scrollbar — ✅ PR #15 (Stage 9 iter 3)
+*Fixed 2026-06-13.* Group chips → `grid grid-cols-6 sm:grid-cols-12` (balanced 6+6 on
+mobile, single row from `sm`); thirds/bracket on their own row; KO round tabs →
+`grid grid-cols-5`. No scrollbar at any width, no fill-then-orphan. Verified on mobile (375px)
+screenshot: A–L in two even rows of 6.
+
+### 24. Tabs reorder (Tournament first) + ICONLESS — ✅ PR #15 (Stage 9 iter 3)
+*Fixed 2026-06-13.* Tournament tab moved first; every decorative lucide icon removed (nav,
+cards, logo mark, champion/third, hardcore Flame, copy, leaderboards, tournament, admin gear
+→ text), text wordmark top-left, `lucide-react` dependency dropped. Team flag emojis kept
+(data). Verified on the deployed URL (en + uk) + mobile screenshot.
+
+### 23. Fun challenge ranges + hardcore exact-number bonus — ✅ PR #16 (Stage 9 iter 3)
+*Fixed 2026-06-13.* The 8 numeric Fun questions became ~5-bucket ranges (exact bucket full,
+adjacent half); hardcore adds an optional exact number for a closeness bonus on the HARDCORE
+board — giving Fun hardcore a purpose. Ranges derived from WC 2010–2022 scaled to 104
+matches/48 teams (table in STATE). Migration `20260613130000_fun_ranges` adds
+`fun_questions.ranges` + `fun_answers.range_index`; player picks + yes/no unchanged; existing
+free-number answers grandfathered into their bucket (no-op — 0 live fun answers).
 
 ### 3. Copy predictions as a template across challenges — ✅ PR #12 (Stage 9 iter 2)
 *Fixed 2026-06-13.* Pure planners `src/lib/predictions/copy.ts` (`planGroupCopy` +

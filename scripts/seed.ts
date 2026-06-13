@@ -14,7 +14,7 @@ import { createClient } from '@supabase/supabase-js';
 import { fullChallengeLockTime } from '../src/engine/locks';
 import { FootballApiClient } from '../src/lib/football-api/client';
 import { extractTeams, mapMatch } from '../src/lib/football-api/mappers';
-import type { Database } from '../src/lib/database.types';
+import type { Database, Json } from '../src/lib/database.types';
 import { loadEnvLocal, requireEnv } from './env';
 
 /**
@@ -24,20 +24,25 @@ import { loadEnvLocal, requireEnv } from './env';
  */
 const PLAYOFF_OPENS_SENTINEL = '2999-01-01T00:00:00Z';
 
-/** SPEC.md → Challenges → Fun: the 12 questions, scoring knobs in the DB. */
+/**
+ * SPEC.md → Challenges → Fun: the 12 questions, scoring knobs in the DB.
+ * Stage 9 item 23: the 8 numeric questions carry `ranges` (ordered [lo,hi]
+ * buckets; null = open). `tolerance` is the hardcore exact-number closeness
+ * window. Ranges derived from WC 2010–2022 scaled to 104 matches (see STATE).
+ */
 const FUN_QUESTIONS = [
-  { key: 'total_goals', qtype: 'numeric', max_pts: 10, tolerance: 30 },
-  { key: 'total_red_cards', qtype: 'numeric', max_pts: 10, tolerance: 6 },
-  { key: 'penalty_shootouts', qtype: 'numeric', max_pts: 10, tolerance: 4 },
-  { key: 'penalties_scored', qtype: 'numeric', max_pts: 10, tolerance: 8 },
-  { key: 'golden_ball', qtype: 'pick', max_pts: 15, tolerance: null },
-  { key: 'golden_boot', qtype: 'pick', max_pts: 15, tolerance: null },
-  { key: 'golden_boot_goals', qtype: 'numeric', max_pts: 10, tolerance: 3 },
-  { key: 'hat_trick', qtype: 'yesno', max_pts: 5, tolerance: null },
-  { key: 'fastest_goal_minute', qtype: 'numeric', max_pts: 10, tolerance: 2 },
-  { key: 'own_goals', qtype: 'numeric', max_pts: 10, tolerance: 4 },
-  { key: 'host_reaches_qf', qtype: 'yesno', max_pts: 5, tolerance: null },
-  { key: 'highest_scoring_match', qtype: 'numeric', max_pts: 10, tolerance: 3 },
+  { key: 'total_goals', qtype: 'numeric', max_pts: 10, tolerance: 25, ranges: [[null, 239], [240, 259], [260, 279], [280, 299], [300, null]] },
+  { key: 'total_red_cards', qtype: 'numeric', max_pts: 10, tolerance: 6, ranges: [[null, 6], [7, 10], [11, 14], [15, 18], [19, null]] },
+  { key: 'penalty_shootouts', qtype: 'numeric', max_pts: 10, tolerance: 4, ranges: [[null, 3], [4, 6], [7, 9], [10, 12], [13, null]] },
+  { key: 'penalties_scored', qtype: 'numeric', max_pts: 10, tolerance: 8, ranges: [[null, 19], [20, 26], [27, 33], [34, 40], [41, null]] },
+  { key: 'golden_ball', qtype: 'pick', max_pts: 15, tolerance: null, ranges: null },
+  { key: 'golden_boot', qtype: 'pick', max_pts: 15, tolerance: null, ranges: null },
+  { key: 'golden_boot_goals', qtype: 'numeric', max_pts: 10, tolerance: 2, ranges: [[null, 5], [6, 6], [7, 7], [8, 8], [9, null]] },
+  { key: 'hat_trick', qtype: 'yesno', max_pts: 5, tolerance: null, ranges: null },
+  { key: 'fastest_goal_minute', qtype: 'numeric', max_pts: 10, tolerance: 2, ranges: [[null, 1], [2, 2], [3, 5], [6, 15], [16, null]] },
+  { key: 'own_goals', qtype: 'numeric', max_pts: 10, tolerance: 4, ranges: [[null, 3], [4, 6], [7, 9], [10, 13], [14, null]] },
+  { key: 'host_reaches_qf', qtype: 'yesno', max_pts: 5, tolerance: null, ranges: null },
+  { key: 'highest_scoring_match', qtype: 'numeric', max_pts: 10, tolerance: 2, ranges: [[null, 5], [6, 6], [7, 7], [8, 8], [9, null]] },
 ] as const;
 
 async function main() {
@@ -140,7 +145,12 @@ async function main() {
 
   // --- fun questions ------------------------------------------------------------
   {
-    const rows = FUN_QUESTIONS.map((q, i) => ({ ...q, sort_order: i + 1 }));
+    const rows = FUN_QUESTIONS.map((q, i) => ({
+      ...q,
+      // readonly [lo,hi] tuples → mutable jsonb payload
+      ranges: q.ranges as unknown as Json,
+      sort_order: i + 1,
+    }));
     const { error } = await supabase
       .from('fun_questions')
       .upsert(rows, { onConflict: 'key' });

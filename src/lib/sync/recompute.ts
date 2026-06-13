@@ -16,7 +16,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { computePoints } from '@/engine/scoring';
 import type {
+  FunAnswer,
   FunQuestionConfig,
+  FunRange,
   FunValue,
   GroupMatchDef,
   GroupMatchPrediction,
@@ -159,6 +161,7 @@ export async function runRecompute(supabase: SyncDb) {
     qtype: string;
     max_pts: number;
     tolerance: number | null;
+    ranges: FunRange[] | null;
     correct_numeric: number | null;
     correct_text: string | null;
     correct_bool: boolean | null;
@@ -166,10 +169,11 @@ export async function runRecompute(supabase: SyncDb) {
   const funAnswers = await sel<{
     entry_id: string;
     question_id: number;
+    range_index: number | null;
     numeric_answer: number | null;
     text_answer: string | null;
     bool_answer: boolean | null;
-  }>('fun_answers', 'entry_id, question_id, numeric_answer, text_answer, bool_answer');
+  }>('fun_answers', 'entry_id, question_id, range_index, numeric_answer, text_answer, bool_answer');
 
   // --- real results ----------------------------------------------------------
   const groupMatches: GroupMatchDef[] = matches
@@ -206,11 +210,13 @@ export async function runRecompute(supabase: SyncDb) {
 
   // --- fun config / actuals ------------------------------------------------------
   const questionKeyById = new Map(funQuestions.map((q) => [q.id, q.key]));
+  const rangesByKey = new Map(funQuestions.map((q) => [q.key, q.ranges]));
   const funConfig: FunQuestionConfig[] = funQuestions.map((q) => ({
     id: q.key,
     type: q.qtype.toUpperCase() as FunQuestionConfig['type'],
     maxPts: q.max_pts,
     tolerance: q.tolerance ?? undefined,
+    ...(q.ranges ? { ranges: q.ranges } : {}),
   }));
   const funActuals: Record<string, FunValue | null> = {};
   for (const q of funQuestions) {
@@ -274,12 +280,19 @@ export async function runRecompute(supabase: SyncDb) {
       });
     }
 
-    const answers: Record<string, FunValue> = {};
+    const answers: Record<string, FunAnswer> = {};
     for (const a of funByEntry.get(entry.id) ?? []) {
       const key = questionKeyById.get(a.question_id);
       if (!key) continue;
-      const value = a.numeric_answer ?? a.text_answer ?? a.bool_answer;
-      if (value != null) answers[key] = value;
+      const ranged = rangesByKey.get(key);
+      if (ranged) {
+        // Ranged numeric (item 23): range_index is the casual pick, the optional
+        // numeric_answer the hardcore exact bonus.
+        if (a.range_index != null) answers[key] = { rangeIndex: a.range_index, exact: a.numeric_answer };
+      } else {
+        const value: FunValue | null = a.numeric_answer ?? a.text_answer ?? a.bool_answer;
+        if (value != null) answers[key] = value;
+      }
     }
 
     return {

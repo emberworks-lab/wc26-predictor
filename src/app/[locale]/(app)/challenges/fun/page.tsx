@@ -3,7 +3,7 @@ import { buildPlayerSuggestions } from "@/lib/predictions/funSuggestions";
 import type { ChallengeDTO } from "@/lib/predictions/types";
 import { createClient } from "@/lib/supabase/server";
 
-import FunForm, { type FunAnswerDTO, type FunQuestionDTO } from "./FunForm";
+import FunForm, { type FunAnswerDTO, type FunQuestionDTO, type FunRange } from "./FunForm";
 
 /**
  * Fun challenge: 12 one-off questions over `fun_questions`, answers in
@@ -32,7 +32,7 @@ export default async function FunPage({
 
   const { data: entry } = await supabase
     .from("challenge_entries")
-    .select("id, submitted_at")
+    .select("id, submitted_at, hardcore")
     .eq("user_id", user!.id)
     .eq("challenge_id", challenge!.id)
     .maybeSingle();
@@ -41,11 +41,11 @@ export default async function FunPage({
   const [{ data: questions }, { data: answers }, players] = await Promise.all([
     supabase
       .from("fun_questions")
-      .select("id, key, qtype, max_pts, tolerance, sort_order")
+      .select("id, key, qtype, max_pts, tolerance, ranges, sort_order")
       .order("sort_order"),
     supabase
       .from("fun_answers")
-      .select("question_id, numeric_answer, text_answer, bool_answer")
+      .select("question_id, range_index, numeric_answer, text_answer, bool_answer")
       .eq("entry_id", entry!.id),
     buildPlayerSuggestions(supabase),
   ]);
@@ -55,10 +55,12 @@ export default async function FunPage({
     key: q.key,
     qtype: q.qtype,
     maxPts: q.max_pts,
+    ranges: (q.ranges as FunRange[] | null) ?? null,
   }));
 
   const answerDTOs: FunAnswerDTO[] = (answers ?? []).map((a) => ({
     questionId: a.question_id,
+    rangeIndex: a.range_index,
     numeric: a.numeric_answer != null ? Number(a.numeric_answer) : null,
     text: a.text_answer,
     bool: a.bool_answer,
@@ -75,6 +77,7 @@ export default async function FunPage({
   return (
     <FunForm
       entryId={entry!.id}
+      hardcore={entry!.hardcore}
       submitted={entry!.submitted_at != null}
       challenge={challengeDTO}
       questions={questionDTOs}

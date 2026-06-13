@@ -539,33 +539,87 @@ describe('computePoints — redistribution multipliers', () => {
 });
 
 describe('computePoints — fun challenge', () => {
+  // Ranged numeric (Stage 9 item 23): goals buckets ≤239/240–259/260–279/280–299/≥300.
+  const goalsRanges = [
+    [null, 239],
+    [240, 259],
+    [260, 279],
+    [280, 299],
+    [300, null],
+  ] as const;
   const questions: FunQuestionConfig[] = [
-    { id: 'goals', type: 'NUMERIC', maxPts: 10, tolerance: 30 },
-    { id: 'reds', type: 'NUMERIC', maxPts: 10, tolerance: 6 },
+    { id: 'goals', type: 'NUMERIC', maxPts: 10, tolerance: 25, ranges: goalsRanges },
+    { id: 'reds', type: 'NUMERIC', maxPts: 10, tolerance: 6, ranges: [[null, 6], [7, 10], [11, 14]] },
     { id: 'ball', type: 'PICK' },
     { id: 'hattrick', type: 'YESNO' },
   ];
 
-  it('scores numeric closeness, exact picks, and yes/no per SPEC', () => {
+  it('scores ranged numeric (exact/adjacent), exact picks, and yes/no per SPEC', () => {
     const { rows } = computePoints({
       real: { groupMatches: [], knockoutMatches: [] },
+      // actual goals 265 → bucket 2; reds 12 → bucket 2
+      funActuals: { goals: 265, reds: 12, ball: 'Messi', hattrick: true },
       funQuestions: questions,
-      funActuals: { goals: 170, reds: 4, ball: 'Messi', hattrick: true },
       entries: [
         {
           entryId: 'fun',
           challenge: 'FUN',
           hardcore: false,
-          funAnswers: { goals: 155, reds: 10, ball: 'Messi', hattrick: false },
+          // goals: bucket 2 (exact) → 10; reds: bucket 0 (2 away) → 0; ball right; hattrick wrong
+          funAnswers: {
+            goals: { rangeIndex: 2 },
+            reds: { rangeIndex: 0 },
+            ball: 'Messi',
+            hattrick: false,
+          },
         },
       ],
     });
     const byRef = Object.fromEntries(rows.map((r) => [r.ref, r.points]));
-    expect(byRef.goals).toBe(5); // 10·(1−15/30) = 5
-    expect(byRef.reds).toBeUndefined(); // |10−4| = tolerance → 0 → no row
+    expect(byRef.goals).toBe(10); // exact bucket
+    expect(byRef.reds).toBeUndefined(); // 2 buckets away → 0 → no row
     expect(byRef.ball).toBe(15);
-    expect(byRef.hattrick).toBeUndefined(); // wrong yes/no
+    expect(byRef.hattrick).toBeUndefined();
     expect(rows).toHaveLength(2);
+  });
+
+  it('adjacent bucket scores half; hardcore exact number adds a HARDCORE-board bonus', () => {
+    const { rows } = computePoints({
+      real: { groupMatches: [], knockoutMatches: [] },
+      funActuals: { goals: 265 }, // bucket 2
+      funQuestions: questions,
+      entries: [
+        {
+          entryId: 'hc',
+          challenge: 'FUN',
+          hardcore: true,
+          // adjacent bucket 1 → 5 global; exact 270 is 5 off, tol 25 → round(5·(1−5/25))=4 hardcore
+          funAnswers: { goals: { rangeIndex: 1, exact: 270 } },
+        },
+      ],
+    });
+    const global = rows.find((r) => r.ref === 'goals' && r.board === 'GLOBAL');
+    const hc = rows.find((r) => r.ref === 'goals' && r.board === 'HARDCORE');
+    expect(global?.points).toBe(5);
+    expect(hc?.points).toBe(4);
+  });
+
+  it('a casual entry never earns the exact-number hardcore bonus', () => {
+    const { rows } = computePoints({
+      real: { groupMatches: [], knockoutMatches: [] },
+      funActuals: { goals: 265 },
+      funQuestions: questions,
+      entries: [
+        {
+          entryId: 'casual',
+          challenge: 'FUN',
+          hardcore: false,
+          funAnswers: { goals: { rangeIndex: 2, exact: 265 } }, // exact correct but casual
+        },
+      ],
+    });
+    expect(rows.filter((r) => r.board === 'HARDCORE')).toHaveLength(0);
+    expect(rows.find((r) => r.ref === 'goals')?.points).toBe(10);
   });
 
   it('skips questions whose actual value is not resolved yet (partial input)', () => {
@@ -578,21 +632,29 @@ describe('computePoints — fun challenge', () => {
           entryId: 'fun',
           challenge: 'FUN',
           hardcore: false,
-          funAnswers: { goals: 170, ball: 'Messi' },
+          funAnswers: { goals: { rangeIndex: 2 }, ball: 'Messi' },
         },
       ],
     });
     expect(rows).toHaveLength(0);
   });
 
-  it('scoreFunQuestion: closeness formula boundaries and rounding', () => {
-    const q: FunQuestionConfig = { id: 'q', type: 'NUMERIC', maxPts: 10, tolerance: 30 };
-    expect(scoreFunQuestion(q, 100, 100)).toBe(10); // exact → max
-    expect(scoreFunQuestion(q, 70, 100)).toBe(0); // |diff| = tolerance → 0
-    expect(scoreFunQuestion(q, 40, 100)).toBe(0); // beyond tolerance → clamped
-    expect(scoreFunQuestion(q, 99, 100)).toBe(10); // round(9.67) = 10
-    expect(scoreFunQuestion(q, 92, 100)).toBe(7); // round(7.33) = 7
-    expect(scoreFunQuestion({ ...q, maxPts: undefined }, 100, 100)).toBe(10); // default
+  it('scoreFunQuestion: range exact/adjacent/miss + hardcore closeness bonus', () => {
+    const q: FunQuestionConfig = {
+      id: 'q',
+      type: 'NUMERIC',
+      maxPts: 10,
+      tolerance: 25,
+      ranges: goalsRanges,
+    };
+    // actual 265 → bucket 2
+    expect(scoreFunQuestion(q, { rangeIndex: 2 }, 265)).toEqual({ global: 10, hardcore: 0 });
+    expect(scoreFunQuestion(q, { rangeIndex: 3 }, 265)).toEqual({ global: 5, hardcore: 0 }); // adjacent
+    expect(scoreFunQuestion(q, { rangeIndex: 0 }, 265)).toEqual({ global: 0, hardcore: 0 }); // far
+    // exact 265 dead-on → max bonus 5
+    expect(scoreFunQuestion(q, { rangeIndex: 2, exact: 265 }, 265)).toEqual({ global: 10, hardcore: 5 });
+    // exact 290 is 25 off (= tolerance) → 0 bonus
+    expect(scoreFunQuestion(q, { rangeIndex: 4, exact: 290 }, 265).hardcore).toBe(0);
   });
 });
 
