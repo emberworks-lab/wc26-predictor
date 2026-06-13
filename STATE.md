@@ -27,7 +27,9 @@
   auto-open ~Jun 27-28 + pin real-thirds annex test; enter fun correct answers
   after the final (Jul 19); `cron.unschedule` the 3 jobs + un-pause PantryPal
   after the tournament. **Stage 9** backlog (`prompts/stage-9-improvements.md`)
-  is a separate iteration.
+  is a separate iteration. **Stage 9 iter 3 shipped** (PRs #15 + #16): all
+  remaining pre-lock prediction-entry items done (19/20/21/22/23/24); only
+  research/P2 items (9/10/12/14/16/17/18) remain in the backlog.
 - Live URL: **https://wc26-predictor-gilt.vercel.app** (en + uk verified). CI green.
 
 ### Stage 7 status (prior)
@@ -60,9 +62,14 @@
   `entries_update` RLS policy (no new grant; same path as the hardcore toggle), which means
   the lock check is automatic: submit allowed only while unlocked, frozen after. The
   migration grandfathered all entries existing at apply time to `now()` so live users
-  didn't drop off the boards. Editing predictions never touches `submitted_at` (separate
-  rows) → "submitted stays submitted". Verify scripts must now set `submitted_at` on any
-  entry they expect to see on a board.
+  didn't drop off the boards. Verify scripts must now set `submitted_at` on any entry they
+  expect to see on a board.
+  - **REVISED Stage 9 item 20 (iter 3):** submit now also makes the entry READ-ONLY (was
+    "edit freely after submit"). `entry_is_submitted()` is woven into `can_edit_*` (gen 0)
+    and the `fun_answers` policies, so a submitted entry rejects prediction writes
+    server-side — the Full-KO redistribution (gen>0) is the sole allowed exception.
+    **Withdraw** (`withdrawEntry`) clears `submitted_at` only (deletes nothing) and re-opens
+    editing for not-yet-kicked-off matches while the challenge is unlocked.
 - **Redistribution stage rule (Stage 7)**: SPEC's "one redistribution per stage max,
   multiplier never increases" is enforced as *every new redistribution must target a
   STRICTLY LATER stage than all existing ones* — otherwise a later-generation
@@ -230,6 +237,74 @@
 | Google OAuth | ✅ fully configured server-side: OAuth client created (Google Cloud `wc26-predictor`), Supabase Google provider enabled via `supabase config push` (see supabase/config.toml), consent screen published to production, site_url + redirect URLs set. Credentials in `.secrets/google_oauth`. Stage 4 builds the UI/flow only |
 
 ## Stage log
+
+### Stage 9 — iteration 3 — June 13, 2026
+- Two PRs, both merged (incremental ship ahead of the Jun 18 02:00 UTC main lock).
+  **PR #15** = the prediction-entry items (21, 19, 20, 22, 24); **PR #16** = Fun
+  ranges (23, the big one). 169 unit tests green (was 167; +2 fun ranged tests).
+  `lucide-react` removed (iconless).
+- **Item 21 — Join → flow.** `joinChallenge` redirects to `/challenges/<kind>`
+  after the insert (carries `kind` + `getLocale()`). Verified E2E on local dev:
+  Groups join lands on `/en/challenges/groups`.
+- **Item 19 — in-flow Submit.** Shared `EntrySubmitControls` renders the
+  Submit/Withdraw CTA on the card AND at the end of every flow.
+- **Item 20 — Submit FINALIZES (read-only) + Withdraw (no erase).** REVERSES
+  iter-1. Migration `20260613120000_submit_locks_predictions` (applied to prod
+  via MCP, user-authorized): `entry_is_submitted()` woven into
+  `can_edit_match_prediction` / `can_edit_bracket` (gen 0) + the `fun_answers`
+  policies → a submitted entry rejects prediction writes server-side. **The
+  Full-KO redistribution path (gen>0) is the sole allowed post-submit write** —
+  untouched. `withdrawEntry` clears `submitted_at` only (no prediction deleted);
+  editing re-opens for not-yet-kicked-off matches; per-match kickoff lock always
+  applies; only while the challenge is unlocked. Server actions pre-check
+  `state.submitted` for clean codes. NOTE: all 3 live entries were grandfathered
+  to submitted (iter-1), so they are now read-only until the user hits Withdraw —
+  the new UI ships that button.
+- **Item 22 — balanced bubbles.** Group chips `grid grid-cols-6 sm:grid-cols-12`
+  (6+6 on mobile, one row from sm); thirds/bracket on their own row; KO round
+  tabs `grid grid-cols-5`. No scrollbar at any width.
+- **Item 24 — Tournament tab first + ICONLESS.** Removed every decorative lucide
+  icon (nav, cards, logo mark, champion/third, hardcore Flame, copy, leaderboards,
+  tournament, admin gear → text). Text wordmark. Team flag emojis kept (data).
+- **Item 23 — Fun ranges + hardcore exact bonus.** The 8 numeric Fun questions →
+  ~5-bucket ranges (casual: exact bucket full / adjacent half; hardcore: bucket +
+  optional exact number → closeness bonus on the **HARDCORE board**, the new
+  purpose for Fun hardcore). Migration `20260613130000_fun_ranges` adds
+  `fun_questions.ranges jsonb` (ordered `[lo,hi]` inclusive buckets, null = open)
+  + `fun_answers.range_index`; `enforce_fun_answer` requires a valid range_index
+  for ranged questions (exact optional). Player picks + yes/no unchanged. Existing
+  free-number answers grandfathered into their bucket (no-op — **0 live fun
+  answers**). Engine `scoreFunQuestion` → `{global, hardcore}`; `bucketOf()`;
+  `POINTS.funHardcoreExactMax = 5`.
+  - **Ranges derivation** (WC 2010/2014/2018/2022, 64 matches each → scaled to
+    WC2026's 104 matches / 48 teams; `tolerance` = hardcore exact closeness window):
+
+    | Question | recent 64-match totals | WC2026 buckets | tol |
+    |---|---|---|---|
+    | total_goals | 145/171/169/172 (2.27–2.69 gpg; bet365 2026 line 279.5) | ≤239 · 240–259 · 260–279 · 280–299 · 300+ | 25 |
+    | total_red_cards | 17/10/4/4 (bet365 2026 over 12) | ≤6 · 7–10 · 11–14 · 15–18 · 19+ | 6 |
+    | penalty_shootouts | 2/4/4/5 (16→32 KO matches) | ≤3 · 4–6 · 7–9 · 10–12 · 13+ | 4 |
+    | penalties_scored (in-game) | ~12/~13/22/~15 (VAR) | ≤19 · 20–26 · 27–33 · 34–40 · 41+ | 8 |
+    | golden_boot_goals | 5/6/6/8 | ≤5 · 6 · 7 · 8 · 9+ | 2 |
+    | fastest_goal_minute | always min 1–2 (55–68s) | 1 · 2 · 3–5 · 6–15 · 16+ | 2 |
+    | own_goals | 2/5/12/2 | ≤3 · 4–6 · 7–9 · 10–13 · 14+ | 4 |
+    | highest_scoring_match | 7/8/7/7 | ≤5 · 6 · 7 · 8 · 9+ | 2 |
+
+    Sources: Opta Analyst / Racing Post (goals, cards, shootouts, 2026 lines),
+    SI / Guinness (own goals), ESPN (fastest goals), Goal / Al Jazeera (Golden Boot).
+- **Verification.** typecheck/lint/test/build green. `verify:rls` **29/29 vs prod**
+  (new 22–25: submitted entry refuses match+bracket edits, withdraw re-opens,
+  kicked-off match stays locked through both). Deployed-URL SSR (en+uk, via minted
+  throwaway cookie + curl): flow renders the balanced grid + end CTA; submit →
+  read-only banner + Withdraw + card "View predictions"; withdraw → Submit returns;
+  UK strings render. Mobile 375px screenshots: A–L in two even rows, iconless tab
+  bar Tournament-first, text wordmark, flags intact, submitted card with Withdraw.
+  Throwaway users self-cleaned (prod back to 3 real profiles).
+- **PENDING manual step (NOT deadline-critical):** re-bundle + redeploy the `sync`
+  Edge Function (`scripts/bundle-sync.mjs`) so deployed recompute uses the new fun
+  ranged scoring. Fun actuals aren't entered until after the final (Jul 19), so
+  recompute doesn't score Fun before then — safe to redeploy any time before
+  entering fun `correct_*` actuals.
 
 ### Stage 9 — iteration 2 — June 13, 2026
 - Branch `stage/9-iteration-2` → PR #12 → merged. 167 unit tests green (was 160;
