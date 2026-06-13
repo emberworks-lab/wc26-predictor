@@ -14,6 +14,67 @@
 
 ## Backlog
 
+### 19. Submit button not discoverable + must also live INSIDE the flow — `open` · small · P0-prelock
+*2026-06-13, manual testing after iter 2.*
+Submit shipped in iter 1 (item #4) but only on the challenge CARD — Anton didn't find it
+for Full/Groups (he only noticed it in Fun). The Submit button must ALSO appear at the END
+of the prediction flow itself (after the champion summary / last question), prominent, as
+the natural "I'm done" action. Keep the card Submit too. Same action, two entry points.
+
+### 20. Submit must FINALIZE the entry (lock editing after submit) — `open` · small-medium · P0-prelock · REVERSES iter-1 design
+*2026-06-13, product decision by Anton.*
+Iter 1 shipped: after Submit you can still freely edit until the challenge locks ("Edit
+predictions", submitted stays submitted). Anton wants the OPPOSITE: **once you submit, the
+entry is read-only** — no more editing — EXCEPT the Full-challenge knockout redistribution
+mechanic after the group stage (already specced, falling multiplier). Applies to Full,
+Groups, Fun.
+Implementation: gate edits on `submitted_at is not null` (server-side: tighten the
+prediction-write RLS/server actions so a submitted entry rejects writes, same as a locked
+challenge; redistribution path is the only allowed post-submit write, on Full KO rows).
+Decision sub-note for Anton (flag, don't silently pick): hard-lock means no fixing a typo
+after submit. Recommended escape hatch: an explicit **"Withdraw / unsubmit"** button
+(clears `submitted_at`, drops you off the leaderboard until you re-submit) — only while the
+challenge itself is still unlocked. Confirm whether you want this hatch or a truly final submit.
+
+### 21. Join must drop the user straight INTO the prediction flow — `open` · small · P0-prelock
+*2026-06-13, manual testing after iter 2.*
+Clicking "Join" on a challenge creates the entry but leaves the user on the cards page.
+It should immediately navigate into that challenge's prediction flow so they can start
+filling it. (Pairs with #19 — the flow then ends with the Submit button.)
+
+### 22. Bubble strip: balanced wrap + stray scrollbar — `open` · small · P0-prelock
+*2026-06-13, manual testing after iter 2.*
+After iter 1's flex-wrap fix, the A–L (and KO-round) bubble strip still shows a scrollbar
+on some widths, and wraps ugly (11 in row 1, 1 orphan in row 2). Wanted: no scrollbar at
+all; when the strip doesn't fit one line, balance it across two roughly-equal rows
+(e.g. 6+6 for groups) instead of fill-then-orphan.
+
+### 23. Fun challenge: range options for numeric questions + redefine hardcore — `open` · medium-large · research + product decision
+*2026-06-13, feature idea + answers "why does Fun have hardcore?".*
+Today the 6 numeric Fun questions are free-number inputs; hardcore mode on Fun is currently
+meaningless. New design:
+- Casual: each numeric question becomes a **pick among ~5 ranges** (e.g. total goals:
+  `<X`, `X–Y`, … `Z+`). Scoring: exact range = full points, adjacent range = partial
+  (replaces the continuous closeness formula for ranged questions).
+- Hardcore: pick the range AND optionally enter an **exact number** for a bonus (this is
+  what hardcore MEANS for Fun — gives the mode a purpose).
+- RESEARCH per question: pull totals from the last 3–4 World Cups (goals, red cards,
+  shootouts, penalties, own goals, golden-boot tally, fastest goal, highest-scoring match),
+  then **scale up proportionally** for WC2026's larger format (104 matches vs 64, 48 teams
+  vs 32) to derive sensible range buckets. Document the derivation.
+- Player picks (Golden Ball/Boot) and yes/no questions stay as-is.
+- TIMING DECISION (flag): Fun locks 2026-06-18 02:00 UTC with Full. Reworking it means a
+  schema + scoring change before then, with live entries to migrate. Alternative: ship Fun
+  as free-numeric for THIS tournament and do ranges next time. Anton to decide.
+
+### 24. Branding round 2: icons look bad — `open` · small-medium · P0-prelock (tab order) / P1 (rest)
+*2026-06-13, manual testing after iter 2.*
+Iter 2 replaced emojis with SVG icons but Anton finds them poor, the logo mark worst.
+- Reorder the main tabs so **Tournament is first** (P0 — trivial, do now).
+- Reconsider iconography: try going **iconless** (clean type-led nav/cards) or source a
+  genuinely good set; drop the current logo mark or replace it with something decent.
+  Team FLAG emojis stay (they're data).
+
 ### 9. Match details view — `open` · medium · research
 *2026-06-13.*
 Click a match (Tournament tab; maybe also in wizards) → detail view: what CAN we show?
