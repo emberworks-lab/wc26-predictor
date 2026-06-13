@@ -135,6 +135,21 @@ export default async function ChallengesPage() {
     });
   }
 
+  // --- copy-as-template source (Stage 9 item 3) ------------------------------
+  // Offer "copy from Full" on Groups (group matches) and, once it opens,
+  // Playoff (R32 picks) when the user's Full entry actually has those picks.
+  const fullHasGroupPreds =
+    !!fullEntry && (groupPreds ?? []).some((p) => p.entry_id === fullEntry.id);
+  const fullHasR32Picks =
+    !!fullEntry &&
+    (bracketRows ?? []).some((b) => b.slot >= 73 && b.slot <= 88 && b.winner_team_id != null);
+  const copySourceFor = (kind: ChallengeRow["kind"]): string | null => {
+    if (!fullEntry) return null;
+    if (kind === "groups") return fullHasGroupPreds ? fullEntry.id : null;
+    if (kind === "playoff") return fullHasR32Picks ? fullEntry.id : null;
+    return null;
+  };
+
   return (
     <section className="flex flex-col gap-4">
       <h1 className="text-xl font-extrabold tracking-tight">{t("title")}</h1>
@@ -144,6 +159,7 @@ export default async function ChallengesPage() {
           challenge={challenge}
           entry={entryByChallenge.get(challenge.id) ?? null}
           completion={completionByChallenge.get(challenge.id) ?? null}
+          copySourceEntryId={copySourceFor(challenge.kind)}
         />
       ))}
     </section>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Flame } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
@@ -70,7 +71,7 @@ export default function UserRow({ user }: { user: AdminUserDTO }) {
               className="flex items-center gap-1.5 rounded-full border border-pitch-700 bg-pitch-800 px-2 py-1 text-[10px] text-text-muted"
             >
               {e.kind}
-              {e.hardcore ? " 🔥" : ""}
+              {e.hardcore && <Flame className="size-3 text-gold-400" aria-hidden="true" />}
               <button
                 type="button"
                 disabled={pending}

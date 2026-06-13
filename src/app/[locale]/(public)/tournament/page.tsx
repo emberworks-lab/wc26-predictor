@@ -1,3 +1,4 @@
+import { CalendarDays } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 
 import KickoffTime from "@/components/KickoffTime";
@@ -283,9 +284,7 @@ export default async function TournamentPage({
           if (!anyKnown) {
             return (
               <div className="flex flex-col items-center gap-3 rounded-2xl border border-pitch-700 bg-pitch-800 p-10 text-center">
-                <span aria-hidden="true" className="text-3xl">
-                  🗓️
-                </span>
+                <CalendarDays className="size-8 text-text-muted" aria-hidden="true" />
                 <p className="text-sm text-text-muted">{t("bracketAfterGroups")}</p>
               </div>
             );

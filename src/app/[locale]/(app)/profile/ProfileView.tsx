@@ -1,7 +1,18 @@
+import { Flame } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
+import type { GroupId } from "@/engine/types";
 import type { PointsSource } from "@/engine/scoring";
+import type {
+  BracketPickDTO,
+  GroupMatchDTO,
+  MatchPredictionDTO,
+  PredictionOutcome,
+  TeamDTO,
+} from "@/lib/predictions/types";
 import { createClient } from "@/lib/supabase/server";
+
+import ProfileBracket from "./ProfileBracket";
 
 /** Breakdown display order = SPEC scoring table order. */
 const CATEGORY_ORDER: PointsSource[] = [
@@ -51,35 +62,74 @@ export default async function ProfileView({
   }
   const entryIds = entries.map((e) => e.id);
 
-  const [{ data: ranks }, { data: points }, { data: redistributions }, { data: preds }, { data: brackets }, { data: teams }] =
-    await Promise.all([
-      supabase
-        .from("leaderboard_ranked")
-        .select("board, challenge_id, points, rank")
-        .eq("user_id", userId),
-      supabase
-        .from("points")
-        .select("entry_id, category, points, hardcore")
-        .in("entry_id", entryIds),
-      supabase
-        .from("redistributions")
-        .select("entry_id, stage, multiplier")
-        .in("entry_id", entryIds),
-      supabase
-        .from("match_predictions")
-        .select(
-          "entry_id, outcome, home_score, away_score, matches(id, status, kickoff_utc, group_code, home_team_id, away_team_id, home_score, away_score)",
-        )
-        .in("entry_id", entryIds),
-      supabase
-        .from("bracket_predictions")
-        .select("entry_id, generation, slot, winner_team_id")
-        .in("entry_id", entryIds)
-        .in("slot", [103, 104]),
-      supabase.from("teams").select("id, fifa_code, name, flag_emoji"),
-    ]);
+  const [
+    { data: ranks },
+    { data: points },
+    { data: redistributions },
+    { data: preds },
+    { data: brackets },
+    { data: teams },
+    { data: groupMatchRows },
+  ] = await Promise.all([
+    supabase
+      .from("leaderboard_ranked")
+      .select("board, challenge_id, points, rank")
+      .eq("user_id", userId),
+    supabase
+      .from("points")
+      .select("entry_id, category, points, hardcore")
+      .in("entry_id", entryIds),
+    supabase
+      .from("redistributions")
+      .select("entry_id, stage, multiplier")
+      .in("entry_id", entryIds),
+    supabase
+      .from("match_predictions")
+      .select(
+        "entry_id, outcome, home_score, away_score, matches(id, status, kickoff_utc, group_code, home_team_id, away_team_id, home_score, away_score)",
+      )
+      .in("entry_id", entryIds),
+    supabase
+      .from("bracket_predictions")
+      .select(
+        "entry_id, generation, slot, home_team_id, away_team_id, winner_team_id, home_score, away_score, aet_pens",
+      )
+      .in("entry_id", entryIds),
+    supabase.from("teams").select("id, fifa_code, name, flag_emoji, group_code"),
+    supabase
+      .from("matches")
+      .select(
+        "id, group_code, matchday, kickoff_utc, status, home_team_id, away_team_id, home_score, away_score",
+      )
+      .eq("stage", "group")
+      .order("kickoff_utc"),
+  ]);
 
   const teamById = new Map((teams ?? []).map((x) => [x.id, x]));
+
+  // Shared inputs for the read-only graphical bracket (Stage 9 item 11).
+  const teamDTOs: TeamDTO[] = (teams ?? [])
+    .filter((tm) => tm.group_code != null)
+    .map((tm) => ({
+      id: tm.id,
+      code: tm.fifa_code,
+      name: tm.name,
+      flag: tm.flag_emoji,
+      group: tm.group_code as GroupId,
+    }));
+  const groupMatchDTOs: GroupMatchDTO[] = (groupMatchRows ?? [])
+    .filter((m) => m.home_team_id != null && m.away_team_id != null)
+    .map((m) => ({
+      id: m.id,
+      group: m.group_code as GroupId,
+      matchday: m.matchday,
+      kickoffUtc: m.kickoff_utc,
+      status: m.status,
+      homeTeamId: m.home_team_id!,
+      awayTeamId: m.away_team_id!,
+      homeScore: m.home_score,
+      awayScore: m.away_score,
+    }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -117,6 +167,29 @@ export default async function ProfileView({
         );
         const champion = championPick ? teamById.get(championPick.winner_team_id) : undefined;
 
+        // Read-only graphical bracket inputs (Stage 9 item 11): their latest
+        // generation's picks + their visible group predictions, derived
+        // client-side. RLS already scopes what's visible.
+        const entryBracketPicks: BracketPickDTO[] = (brackets ?? [])
+          .filter((b) => b.entry_id === entry.id && b.generation === gen)
+          .map((b) => ({
+            slot: b.slot,
+            homeTeamId: b.home_team_id,
+            awayTeamId: b.away_team_id,
+            winnerTeamId: b.winner_team_id,
+            homeScore: b.home_score,
+            awayScore: b.away_score,
+            aetPens: b.aet_pens,
+          }));
+        const entryBracketPreds: MatchPredictionDTO[] = (preds ?? [])
+          .filter((p) => p.entry_id === entry.id && p.matches != null)
+          .map((p) => ({
+            matchId: p.matches!.id,
+            outcome: p.outcome as PredictionOutcome,
+            homeScore: p.home_score,
+            awayScore: p.away_score,
+          }));
+
         return (
           <div
             key={entry.id}
@@ -126,8 +199,9 @@ export default async function ProfileView({
               <h3 className="flex items-center gap-2 text-sm font-bold">
                 {tc(`${kind}.title`)}
                 {entry.hardcore && (
-                  <span className="rounded-full bg-gold-500/15 px-2 py-0.5 text-[10px] font-semibold text-gold-400">
-                    🔥 {t("hardcore")}
+                  <span className="inline-flex items-center gap-1 rounded-full bg-gold-500/15 px-2 py-0.5 text-[10px] font-semibold text-gold-400">
+                    <Flame className="size-3" aria-hidden="true" />
+                    {t("hardcore")}
                   </span>
                 )}
               </h3>
@@ -141,8 +215,9 @@ export default async function ProfileView({
                   </span>
                 )}
                 {hardcoreRank && (
-                  <span className="text-xs">
-                    🔥 <span className="text-text-muted">#{Number(hardcoreRank.rank)}</span>{" "}
+                  <span className="inline-flex items-center gap-1 text-xs">
+                    <Flame className="size-3 text-gold-400" aria-hidden="true" />
+                    <span className="text-text-muted">#{Number(hardcoreRank.rank)}</span>{" "}
                     <span className="font-bold text-gold-400">{Number(hardcoreRank.points)}</span>
                   </span>
                 )}
@@ -245,6 +320,23 @@ export default async function ProfileView({
                   </span>
                 )}
               </div>
+            )}
+
+            {kind === "full" && (
+              <details className="border-t border-pitch-700 pt-3">
+                <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                  {t("predictedBracket")}
+                </summary>
+                <div className="mt-3">
+                  <ProfileBracket
+                    teams={teamDTOs}
+                    matches={groupMatchDTOs}
+                    predictions={entryBracketPreds}
+                    bracketPicks={entryBracketPicks}
+                    hardcore={entry.hardcore}
+                  />
+                </div>
+              </details>
             )}
           </div>
         );

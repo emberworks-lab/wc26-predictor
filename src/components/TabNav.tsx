@@ -1,15 +1,16 @@
 "use client";
 
+import { CircleUser, Goal, Medal, Target, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Link, usePathname } from "@/i18n/navigation";
 
-const TABS = [
-  { href: "/challenges", key: "challenges", emoji: "🏆" },
-  { href: "/tournament", key: "tournament", emoji: "⚽" },
-  { href: "/leaderboards", key: "leaderboards", emoji: "🥇" },
-  { href: "/profile", key: "profile", emoji: "👤" },
-] as const;
+const TABS: ReadonlyArray<{ href: string; key: string; Icon: LucideIcon }> = [
+  { href: "/challenges", key: "challenges", Icon: Target },
+  { href: "/tournament", key: "tournament", Icon: Goal },
+  { href: "/leaderboards", key: "leaderboards", Icon: Medal },
+  { href: "/profile", key: "profile", Icon: CircleUser },
+];
 
 /** Bottom tab bar on mobile, horizontal nav under the header on desktop. */
 export default function TabNav() {
@@ -37,9 +38,7 @@ export default function TabNav() {
                     : "text-text-muted hover:text-text-primary",
                 ].join(" ")}
               >
-                <span aria-hidden="true" className="text-lg md:text-base">
-                  {tab.emoji}
-                </span>
+                <tab.Icon className="size-5 md:size-4" aria-hidden="true" />
                 {t(tab.key)}
               </Link>
             </li>

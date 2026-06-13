@@ -1,5 +1,7 @@
+import { Settings } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
+import Brand from "@/components/Brand";
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -26,11 +28,8 @@ export default async function Header() {
 
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between gap-2 border-b border-pitch-700 bg-pitch-900/90 px-4 py-3 backdrop-blur-sm">
-      <Link
-        href="/"
-        className="min-w-0 truncate text-lg font-bold tracking-tight text-gold-400"
-      >
-        {t("wordmark")}
+      <Link href="/" className="min-w-0">
+        <Brand wordmark={t("wordmark")} />
       </Link>
       <div className="flex shrink-0 items-center gap-2">
         <LocaleSwitcher />
@@ -38,9 +37,9 @@ export default async function Header() {
           <Link
             href="/admin"
             aria-label={t("admin")}
-            className="rounded-full border border-pitch-700 bg-pitch-800 px-2.5 py-1.5 text-xs transition-colors hover:border-gold-500"
+            className="flex items-center rounded-full border border-pitch-700 bg-pitch-800 p-2 text-text-muted transition-colors hover:border-gold-500 hover:text-gold-400"
           >
-            ⚙️
+            <Settings className="size-4" aria-hidden="true" />
           </Link>
         )}
         {user ? (
