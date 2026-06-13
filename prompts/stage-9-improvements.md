@@ -31,10 +31,18 @@ Groups, Fun.
 Implementation: gate edits on `submitted_at is not null` (server-side: tighten the
 prediction-write RLS/server actions so a submitted entry rejects writes, same as a locked
 challenge; redistribution path is the only allowed post-submit write, on Full KO rows).
-Decision sub-note for Anton (flag, don't silently pick): hard-lock means no fixing a typo
-after submit. Recommended escape hatch: an explicit **"Withdraw / unsubmit"** button
-(clears `submitted_at`, drops you off the leaderboard until you re-submit) — only while the
-challenge itself is still unlocked. Confirm whether you want this hatch or a truly final submit.
+**DECISION (Anton, 2026-06-13): option A — Withdraw button, NO erase.** Semantics:
+- Submit → entry read-only + on the leaderboard.
+- **Withdraw** = clears `submitted_at` only. It does NOT delete any predictions. You drop
+  off the leaderboard and editing re-opens — but ONLY for matches that haven't kicked off
+  (the per-match kickoff lock is independent and always applies). Already-played matches
+  stay locked; your existing correct picks there are preserved and resume scoring on
+  re-submit. There is NO reset/erase of predictions.
+- Available only while the challenge itself is still unlocked (before 2026-06-18 02:00 UTC
+  for Full/Groups/Fun). After the challenge locks, neither edit nor withdraw is possible.
+- Full-challenge knockout redistribution remains the separate post-group-stage mechanic.
+Rationale recorded: erase would punish a legitimate edit with zero anti-cheat benefit
+(past matches are already locked, so withdrawing can never improve a past pick).
 
 ### 21. Join must drop the user straight INTO the prediction flow — `open` · small · P0-prelock
 *2026-06-13, manual testing after iter 2.*
@@ -63,17 +71,18 @@ meaningless. New design:
   then **scale up proportionally** for WC2026's larger format (104 matches vs 64, 48 teams
   vs 32) to derive sensible range buckets. Document the derivation.
 - Player picks (Golden Ball/Boot) and yes/no questions stay as-is.
-- TIMING DECISION (flag): Fun locks 2026-06-18 02:00 UTC with Full. Reworking it means a
-  schema + scoring change before then, with live entries to migrate. Alternative: ship Fun
-  as free-numeric for THIS tournament and do ranges next time. Anton to decide.
+- TIMING DECISION (Anton, 2026-06-13): **do it NOW, before the June 18 lock**, so friends
+  answer in the new ranged format. Schema + scoring change with a migration for the few
+  live Fun entries (re-map any existing free-number answer to its containing range; keep
+  the exact number as the hardcore value). Ship inside the deadline-sensitive iter 3.
 
 ### 24. Branding round 2: icons look bad — `open` · small-medium · P0-prelock (tab order) / P1 (rest)
 *2026-06-13, manual testing after iter 2.*
 Iter 2 replaced emojis with SVG icons but Anton finds them poor, the logo mark worst.
 - Reorder the main tabs so **Tournament is first** (P0 — trivial, do now).
-- Reconsider iconography: try going **iconless** (clean type-led nav/cards) or source a
-  genuinely good set; drop the current logo mark or replace it with something decent.
-  Team FLAG emojis stay (they're data).
+- **DECISION (Anton, 2026-06-13): go ICONLESS.** Remove the decorative SVG icons and the
+  current logo mark; lean on clean typography for nav + cards. A simple text/typographic
+  wordmark is fine for the top-left; no pictorial logo. Team FLAG emojis stay (data).
 
 ### 9. Match details view — `open` · medium · research
 *2026-06-13.*
