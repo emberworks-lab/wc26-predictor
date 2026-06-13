@@ -225,7 +225,8 @@
       "fastest_goal_minute": "Match minute of the earliest goal in any game (1–90+).",
       "highest_scoring_match": "Total goals in the tournament's highest-scoring single match.",
       "host_reaches_qf": "USA, Mexico or Canada reaching the quarter-finals."
-    }
+    },
+    "exactBonus": "Exact number (bonus)"
   },
   "Playoff": {
     "title": "Playoff Only",

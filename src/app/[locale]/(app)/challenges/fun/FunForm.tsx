@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import Countdown from "@/components/Countdown";
 import KickoffTime from "@/components/KickoffTime";
 import PlayerPicker from "@/components/PlayerPicker";
+import { bucketOf } from "@/engine/scoring";
 import { isChallengeLocked } from "@/engine/locks";
 import { toChallengeLockState } from "@/lib/predictions/derive";
 import type { ChallengeDTO, PlayerSuggestion } from "@/lib/predictions/types";
@@ -13,22 +14,31 @@ import type { ChallengeDTO, PlayerSuggestion } from "@/lib/predictions/types";
 import EntrySubmitControls from "../EntrySubmitControls";
 import { saveFunAnswer } from "./actions";
 
+/** Inclusive integer bucket [lo, hi]; null = open-ended (item 23). */
+export type FunRange = [number | null, number | null];
+
 export interface FunQuestionDTO {
   id: number;
   key: string;
   qtype: "numeric" | "pick" | "yesno";
   maxPts: number;
+  /** Ranged numeric question → casual picks a bucket (item 23). */
+  ranges: FunRange[] | null;
 }
 
 export interface FunAnswerDTO {
   questionId: number;
+  rangeIndex: number | null;
+  /** Hardcore exact-number bonus (ranged questions). */
   numeric: number | null;
   text: string | null;
   bool: boolean | null;
 }
 
-/** The client's working copy of one answer (exactly one field set). */
+/** The client's working copy of one answer. */
 interface LocalAnswer {
+  rangeIndex?: number;
+  /** Hardcore exact number for a ranged question. */
   numeric?: number;
   text?: string;
   bool?: boolean;
@@ -43,13 +53,23 @@ const MAX_NUMERIC = 9999;
 const HINTED = new Set(["fastest_goal_minute", "highest_scoring_match", "host_reaches_qf"]);
 
 const hasValue = (a: LocalAnswer | undefined): boolean =>
-  a !== undefined && (a.numeric !== undefined || a.text !== undefined || a.bool !== undefined);
+  a !== undefined &&
+  (a.rangeIndex !== undefined || a.text !== undefined || a.bool !== undefined);
 
 function toLocal(a: FunAnswerDTO): LocalAnswer {
-  if (a.numeric != null) return { numeric: a.numeric };
+  if (a.rangeIndex != null)
+    return { rangeIndex: a.rangeIndex, ...(a.numeric != null ? { numeric: a.numeric } : {}) };
   if (a.text != null) return { text: a.text };
   if (a.bool != null) return { bool: a.bool };
   return {};
+}
+
+/** Human label for a bucket: "≤239", "240–259", "300+", or "6" (singleton). */
+function rangeLabel([lo, hi]: FunRange): string {
+  if (lo === null) return `≤${hi}`;
+  if (hi === null) return `${lo}+`;
+  if (lo === hi) return `${lo}`;
+  return `${lo}–${hi}`;
 }
 
 function NumericInput({
@@ -100,6 +120,7 @@ function NumericInput({
 
 export default function FunForm({
   entryId,
+  hardcore,
   submitted,
   challenge,
   questions,
@@ -108,6 +129,8 @@ export default function FunForm({
   serverNow,
 }: {
   entryId: string;
+  /** Hardcore entries may add an exact number for a bonus (item 23). */
+  hardcore: boolean;
   /** Submitted entries are read-only until withdrawn (Stage 9 item 20). */
   submitted: boolean;
   challenge: ChallengeDTO;
@@ -153,7 +176,8 @@ export default function FunForm({
     const res = await saveFunAnswer({
       entryId,
       questionId,
-      ...(value.numeric !== undefined ? { numericAnswer: value.numeric } : {}),
+      ...(value.rangeIndex !== undefined ? { rangeIndex: value.rangeIndex } : {}),
+      ...(value.numeric !== undefined ? { exact: value.numeric } : {}),
       ...(value.text !== undefined ? { textAnswer: value.text } : {}),
       ...(value.bool !== undefined ? { boolAnswer: value.bool } : {}),
     }).catch(() => ({ ok: false as const, code: "error" as const }));
@@ -241,6 +265,13 @@ export default function FunForm({
                 ? "bg-gold-500 text-pitch-950"
                 : "bg-pitch-700 text-text-muted enabled:hover:text-text-primary disabled:opacity-50",
             ].join(" ");
+          const rangeBtn = (selected: boolean) =>
+            [
+              "rounded-lg px-2 py-2 text-center text-xs font-bold transition-colors",
+              selected
+                ? "bg-gold-500 text-pitch-950"
+                : "bg-pitch-700 text-text-muted enabled:hover:text-text-primary disabled:opacity-50",
+            ].join(" ");
           return (
             <li
               key={q.id}
@@ -261,13 +292,37 @@ export default function FunForm({
                 <p className="-mt-1.5 text-[11px] text-text-muted">{t(`hints.${q.key}`)}</p>
               )}
 
-              <div className="flex items-center gap-2">
-                {q.qtype === "numeric" && (
-                  <NumericInput
-                    value={local?.numeric}
-                    disabled={readOnly}
-                    onChange={(v) => commit(q.id, { numeric: v }, true)}
-                  />
+              <div className="flex flex-wrap items-center gap-2">
+                {q.qtype === "numeric" && q.ranges && (
+                  <div className="flex w-full flex-col gap-2">
+                    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+                      {q.ranges.map((r, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          disabled={readOnly}
+                          className={rangeBtn(local?.rangeIndex === idx)}
+                          onClick={() => commit(q.id, { ...local, rangeIndex: idx }, true)}
+                        >
+                          {rangeLabel(r)}
+                        </button>
+                      ))}
+                    </div>
+                    {hardcore && (
+                      <label className="flex flex-wrap items-center gap-2 text-[11px] text-text-muted">
+                        <span>{t("exactBonus")}</span>
+                        <NumericInput
+                          value={local?.numeric}
+                          disabled={readOnly}
+                          onChange={(n) => {
+                            const next: LocalAnswer = { ...local, numeric: n };
+                            if (next.rangeIndex === undefined) next.rangeIndex = bucketOf(q.ranges!, n);
+                            commit(q.id, next, true);
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
                 )}
                 {q.qtype === "yesno" && (
                   <div className="flex w-full max-w-60 gap-1.5">

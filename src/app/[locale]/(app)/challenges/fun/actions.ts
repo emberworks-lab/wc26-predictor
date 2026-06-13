@@ -13,23 +13,38 @@ import { createClient } from "@/lib/supabase/server";
 
 const MAX_NUMERIC = 9999;
 const MAX_TEXT = 120;
+const MAX_RANGE_INDEX = 19;
 
+/**
+ * Fun-answer autosave. Three answer channels, exactly one per call:
+ *  - ranged numeric (Stage 9 item 23): `rangeIndex` (casual pick) + optional
+ *    `exact` (hardcore exact-number bonus → numeric_answer)
+ *  - pick: `textAnswer`
+ *  - yes/no: `boolAnswer`
+ * RLS + the enforce_fun_answer trigger are the enforcement point (challenge
+ * lock, submit lock, ownership, shape-vs-question-type, valid range_index).
+ */
 export async function saveFunAnswer(input: {
   entryId: string;
   questionId: number;
-  numericAnswer?: number;
+  rangeIndex?: number;
+  exact?: number;
   textAnswer?: string;
   boolAnswer?: boolean;
 }): Promise<SaveResult> {
-  const { entryId, questionId, numericAnswer, textAnswer, boolAnswer } = input;
+  const { entryId, questionId, rangeIndex, exact, textAnswer, boolAnswer } = input;
 
-  const provided = [numericAnswer, textAnswer, boolAnswer].filter((v) => v !== undefined);
+  // Exactly one answer channel (exact only rides along with rangeIndex).
+  const channels = [rangeIndex, textAnswer, boolAnswer].filter((v) => v !== undefined);
+  const validInt = (v: number | undefined, max: number) =>
+    v === undefined || (Number.isInteger(v) && v >= 0 && v <= max);
   if (
     !entryId ||
     !Number.isInteger(questionId) ||
-    provided.length !== 1 ||
-    (numericAnswer !== undefined &&
-      (!Number.isFinite(numericAnswer) || numericAnswer < 0 || numericAnswer > MAX_NUMERIC)) ||
+    channels.length !== 1 ||
+    (exact !== undefined && rangeIndex === undefined) ||
+    !validInt(rangeIndex, MAX_RANGE_INDEX) ||
+    !validInt(exact, MAX_NUMERIC) ||
     (textAnswer !== undefined &&
       (textAnswer.trim().length === 0 || textAnswer.length > MAX_TEXT))
   ) {
@@ -45,7 +60,8 @@ export async function saveFunAnswer(input: {
     {
       entry_id: entryId,
       question_id: questionId,
-      numeric_answer: numericAnswer ?? null,
+      range_index: rangeIndex ?? null,
+      numeric_answer: rangeIndex !== undefined ? (exact ?? null) : null,
       text_answer: textAnswer?.trim() ?? null,
       bool_answer: boolAnswer ?? null,
     },

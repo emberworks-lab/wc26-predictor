@@ -108,15 +108,34 @@ export interface GroupMatchPrediction {
 
 export type ChallengeKind = 'FULL' | 'GROUPS' | 'PLAYOFF' | 'FUN';
 
+/** Inclusive integer bucket [lo, hi]; null = open-ended on that side. */
+export type FunRange = readonly [number | null, number | null];
+
 export interface FunQuestionConfig {
   id: string;
   type: 'NUMERIC' | 'PICK' | 'YESNO';
   /** NUMERIC only; default maxPts 10. */
   maxPts?: number;
+  /** Hardcore exact-number closeness window (Stage 9 item 23). */
   tolerance?: number;
+  /**
+   * Ranged numeric question (Stage 9 item 23): ordered, contiguous buckets.
+   * Present → casual picks a bucket (exact full, adjacent half); hardcore may
+   * also enter an exact number for a closeness bonus on the HARDCORE board.
+   */
+  ranges?: readonly FunRange[];
 }
 
 export type FunValue = number | string | boolean;
+
+/** A casual range pick plus the optional hardcore exact number. */
+export interface FunRangedAnswer {
+  rangeIndex: number;
+  exact?: number | null;
+}
+
+/** What a user submits for a fun question. */
+export type FunAnswer = FunValue | FunRangedAnswer;
 
 export interface ScoringEntry {
   entryId: string;
@@ -128,7 +147,7 @@ export interface ScoringEntry {
    * (multiplier 1, no `redistributedBefore`). PLAYOFF has one version.
    */
   bracket?: readonly BracketVersion[];
-  funAnswers?: Readonly<Record<string, FunValue>>;
+  funAnswers?: Readonly<Record<string, FunAnswer>>;
 }
 
 export interface ScoringInput {
@@ -201,6 +220,8 @@ export const POINTS = {
   funPickExact: 15,
   funYesNo: 5,
   funNumericMaxDefault: 10,
+  /** Max bonus on the HARDCORE board for an exact-number fun answer (item 23). */
+  funHardcoreExactMax: 5,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -526,25 +547,60 @@ function computeVersionPairings(
 // Fun questions
 // ---------------------------------------------------------------------------
 
+/** Index of the bucket containing `value`, or -1 if none/ill-formed. */
+export function bucketOf(ranges: readonly FunRange[], value: number): number {
+  if (!Number.isFinite(value)) return -1;
+  for (let i = 0; i < ranges.length; i++) {
+    const [lo, hi] = ranges[i];
+    if ((lo === null || value >= lo) && (hi === null || value <= hi)) return i;
+  }
+  return -1;
+}
+
+/**
+ * Fun scoring. Returns points split by leaderboard board:
+ *  - `global`: PICK 15 / YESNO 5 / ranged-numeric range points (exact bucket =
+ *    maxPts, adjacent bucket = half, else 0; legacy non-ranged numeric keeps
+ *    the old closeness formula).
+ *  - `hardcore`: a ranged question's optional exact-number closeness bonus
+ *    (Stage 9 item 23) — only the HARDCORE board, only when an exact is given.
+ */
 export function scoreFunQuestion(
   q: FunQuestionConfig,
-  answer: FunValue,
+  answer: FunAnswer,
   actual: FunValue,
-): number {
-  switch (q.type) {
-    case 'NUMERIC': {
-      const guess = Number(answer);
-      const real = Number(actual);
-      const tolerance = q.tolerance ?? 1;
-      const maxPts = q.maxPts ?? POINTS.funNumericMaxDefault;
-      if (!Number.isFinite(guess) || !Number.isFinite(real) || tolerance <= 0) return 0;
-      return Math.round(Math.max(0, maxPts * (1 - Math.abs(guess - real) / tolerance)));
+): { global: number; hardcore: number } {
+  if (q.type === 'PICK') return { global: answer === actual ? POINTS.funPickExact : 0, hardcore: 0 };
+  if (q.type === 'YESNO') return { global: answer === actual ? POINTS.funYesNo : 0, hardcore: 0 };
+
+  // NUMERIC
+  const real = Number(actual);
+  const maxPts = q.maxPts ?? POINTS.funNumericMaxDefault;
+  if (!Number.isFinite(real)) return { global: 0, hardcore: 0 };
+
+  if (q.ranges && q.ranges.length > 0 && typeof answer === 'object' && answer !== null) {
+    const ans = answer as FunRangedAnswer;
+    const actualIdx = bucketOf(q.ranges, real);
+    let global = 0;
+    if (Number.isInteger(ans.rangeIndex) && actualIdx >= 0) {
+      const d = Math.abs(ans.rangeIndex - actualIdx);
+      global = d === 0 ? maxPts : d === 1 ? Math.round(maxPts / 2) : 0;
     }
-    case 'PICK':
-      return answer === actual ? POINTS.funPickExact : 0;
-    case 'YESNO':
-      return answer === actual ? POINTS.funYesNo : 0;
+    let hardcore = 0;
+    const tol = q.tolerance ?? 1;
+    if (ans.exact != null && Number.isFinite(Number(ans.exact)) && tol > 0) {
+      hardcore = Math.round(
+        Math.max(0, POINTS.funHardcoreExactMax * (1 - Math.abs(Number(ans.exact) - real) / tol)),
+      );
+    }
+    return { global, hardcore };
   }
+
+  // Legacy non-ranged numeric (closeness) — kept for safety/back-compat.
+  const guess = Number(answer);
+  const tol = q.tolerance ?? 1;
+  if (!Number.isFinite(guess) || tol <= 0) return { global: 0, hardcore: 0 };
+  return { global: Math.round(Math.max(0, maxPts * (1 - Math.abs(guess - real) / tol))), hardcore: 0 };
 }
 
 // ---------------------------------------------------------------------------
@@ -787,8 +843,11 @@ function scoreEntry(
       const answer = entry.funAnswers[q.id];
       const actual = funActuals[q.id];
       if (answer === undefined || actual === undefined || actual === null) continue;
-      const pts = scoreFunQuestion(q, answer, actual);
-      if (pts > 0) add('GLOBAL', 'FUN', q.id, pts);
+      const { global, hardcore } = scoreFunQuestion(q, answer, actual);
+      if (global > 0) add('GLOBAL', 'FUN', q.id, global);
+      // The exact-number bonus is the hardcore mode's purpose for Fun (item 23):
+      // hardcore board only, and only for hardcore entries.
+      if (entry.hardcore && hardcore > 0) add('HARDCORE', 'FUN', q.id, hardcore);
     }
   }
 
