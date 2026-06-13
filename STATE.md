@@ -53,6 +53,16 @@
 
 ## Decisions
 
+- **Submit gating = `challenge_entries.submitted_at` + a view filter (Stage 9 item 4)**:
+  an entry ranks on the leaderboards only once `submitted_at is not null`. Enforced in ONE
+  place — `leaderboard_entry_rows` filters it (every ranked/overall view builds on that
+  view), so per-board code needed no changes. The column is user-settable via the existing
+  `entries_update` RLS policy (no new grant; same path as the hardcore toggle), which means
+  the lock check is automatic: submit allowed only while unlocked, frozen after. The
+  migration grandfathered all entries existing at apply time to `now()` so live users
+  didn't drop off the boards. Editing predictions never touches `submitted_at` (separate
+  rows) → "submitted stays submitted". Verify scripts must now set `submitted_at` on any
+  entry they expect to see on a board.
 - **Redistribution stage rule (Stage 7)**: SPEC's "one redistribution per stage max,
   multiplier never increases" is enforced as *every new redistribution must target a
   STRICTLY LATER stage than all existing ones* — otherwise a later-generation
@@ -220,6 +230,48 @@
 | Google OAuth | ✅ fully configured server-side: OAuth client created (Google Cloud `wc26-predictor`), Supabase Google provider enabled via `supabase config push` (see supabase/config.toml), consent screen published to production, site_url + redirect URLs set. Credentials in `.secrets/google_oauth`. Stage 4 builds the UI/flow only |
 
 ## Stage log
+
+### Stage 9 — iteration 1 — June 13, 2026
+- Branch `stage/9-iteration-1` → PR #11 → merged. 160 unit tests green (was 154;
+  +6 for the new completion helper). Cleared ALL P0-prelock backlog items
+  (4, 5, 6, 7, 13) ahead of the Jun 18 02:00 UTC main lock; stopped before P1.
+- **Item 4 — explicit submit gating (the big one).** Migration
+  `20260613000000_submit_gating` (applied to prod via MCP `apply_migration`,
+  recorded remote version): `challenge_entries.submitted_at timestamptz`,
+  **all 3 existing entries grandfathered to `now()`**, `leaderboard_totals`
+  gains the column + `leaderboard_entry_rows` filters `submitted_at is not null`
+  (every downstream ranked/overall view inherits the gate). No new grant —
+  `authenticated` already has table-wide UPDATE on `challenge_entries`, gated by
+  the existing `entries_update` policy (owner + not banned + not locked), so a
+  submit after the deadline is RLS-refused and a submitted entry can't be
+  withdrawn post-lock. New `submitEntry` action; `ChallengeCard` shows honest
+  completion (group "done/available available (N locked)", bracket "N/32 ·
+  Champion: X", fun "N/12"), a Submit button (warns on missing picks, allowed
+  anyway) that becomes "Edit predictions" + a "Submitted" badge. Completion math
+  is the pure `src/lib/predictions/completion.ts` (counts saved rows; excludes
+  permanently-locked-before-join matches from the denominator — that was the
+  "70/72" bug). DB types regenerated.
+- **Item 7 — leaderboard switching.** `fetchAllBoards()` loads every board in
+  ~5 queries (was ~4 per board × 10 boards); page delegates to a client
+  `LeaderboardsBrowser` that switches tab/board in state (no nav/refetch) and
+  syncs the URL via `history.replaceState`.
+- **Items 5/6/13 — UI/copy.** Group A–L strip + knockout round tabs now
+  `flex-wrap` (no more horizontal scrollbar); round tabs turn green + ✓ on
+  completion like the group bubbles; knockout score copy reworded in both
+  locales to "score after 90 minutes (regulation); on a draw pick who advances".
+- **Verification:** `verify:rls` 25/25 PASS vs prod (incl. submit-gated board
+  visibility + banned-hidden, after updating the verify scripts to submit their
+  throwaway entries). Migration grandfathering verified on prod (3/3 still on
+  boards). UI verified via the cookie-injection pattern with a throwaway user
+  (card "Groups 68/68 ✓ (4 locked before you joined)", Submit → SUBMITTED + Edit
+  predictions, board membership flipped on submit), then the throwaway user was
+  deleted (prod back to 3 profiles / 3 submitted entries / 3 board rows).
+  NOTE: page-content client islands did not hydrate in THIS preview session
+  (a known-good live component, PredictionFlow, failed identically — environmental,
+  not a regression); item 7's client switching to be confirmed on the deployed URL.
+- Updated the verify scripts (`rls-check`, `verify-stage6/7/8`) to set
+  `submitted_at` on the entries they expect on boards — required now that boards
+  filter on it.
 
 ### Stage 8 — June 13, 2026
 - Branch `stage/8-admin-ship` → PR → merged. 154 unit tests green (stage adds

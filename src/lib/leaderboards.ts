@@ -129,3 +129,110 @@ export async function fetchBoard(
     };
   });
 }
+
+/**
+ * Batch variant: every board (overall + each challenge, × global/hardcore) in
+ * ~5 queries total instead of ~4 per board. The leaderboards UI preloads the
+ * whole payload once and switches tabs client-side — board switching used to
+ * trigger a fresh server navigation with sequential per-board queries (Stage 9
+ * item 7: "switching between leaderboards feels dead slow").
+ *
+ * The movement baseline (newest snapshot matchday before the active one) is
+ * shared across every board — write_leaderboard_snapshots() inserts all boards
+ * at the same matchday_date in one pass — so it's resolved once here.
+ *
+ * Returns a map keyed by tab ("overall" or a challenge kind) → board → rows.
+ */
+export async function fetchAllBoards(
+  supabase: Supabase,
+  challenges: ReadonlyArray<{ id: number; kind: string }>,
+): Promise<Record<string, Record<Board, LeaderboardRow[]>>> {
+  const kindById = new Map(challenges.map((c) => [c.id, c.kind]));
+
+  // --- shared movement baseline -------------------------------------------
+  const { data: lastFinished } = await supabase
+    .from("matches")
+    .select("kickoff_utc")
+    .in("status", ["finished", "awarded"])
+    .order("kickoff_utc", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const activeMatchday = lastFinished ? matchdayDateOf(lastFinished.kickoff_utc) : null;
+
+  let baselineDate: string | null = null;
+  if (activeMatchday) {
+    const { data } = await supabase
+      .from("leaderboard_snapshots")
+      .select("matchday_date")
+      .lt("matchday_date", activeMatchday)
+      .order("matchday_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    baselineDate = data?.matchday_date ?? null;
+  }
+
+  // baseline rank per board key (`board|tab`) → user → rank. A key present here
+  // means a baseline snapshot exists for that board (drives isNew semantics).
+  const baselineByKey = new Map<string, Map<string, number>>();
+  if (baselineDate) {
+    const { data: snapRows } = await supabase
+      .from("leaderboard_snapshots")
+      .select("board, challenge_id, user_id, rank")
+      .eq("matchday_date", baselineDate);
+    for (const s of snapRows ?? []) {
+      const tab = s.challenge_id == null ? "overall" : (kindById.get(s.challenge_id) ?? null);
+      if (tab == null) continue;
+      const key = `${s.board}|${tab}`;
+      let m = baselineByKey.get(key);
+      if (!m) baselineByKey.set(key, (m = new Map()));
+      m.set(s.user_id, Number(s.rank));
+    }
+  }
+
+  // --- live rows (all challenges + overall, both boards) -------------------
+  const [{ data: ranked }, { data: overall }] = await Promise.all([
+    supabase
+      .from("leaderboard_ranked")
+      .select(
+        "board, challenge_id, user_id, display_name, points, rank, correct_qualifiers, correct_ko_picks, correct_outcomes",
+      )
+      .order("rank", { ascending: true }),
+    supabase
+      .from("leaderboard_overall_ranked")
+      .select(
+        "board, user_id, display_name, points, rank, correct_qualifiers, correct_ko_picks, correct_outcomes",
+      )
+      .order("rank", { ascending: true }),
+  ]);
+
+  const out: Record<string, Record<Board, LeaderboardRow[]>> = {};
+  const push = (tab: string, board: Board, raw: NonNullable<typeof ranked>[number]) => {
+    const baseline = baselineByKey.get(`${board}|${tab}`);
+    const rank = Number(raw.rank);
+    const baseRank = baseline?.get(raw.user_id!);
+    (out[tab] ??= { global: [], hardcore: [] })[board].push({
+      userId: raw.user_id!,
+      displayName: raw.display_name!,
+      points: Number(raw.points),
+      rank,
+      movement: baseRank !== undefined ? baseRank - rank : null,
+      isNew: baseline != null && baseRank === undefined,
+      correctQualifiers: raw.correct_qualifiers ?? 0,
+      correctKoPicks: raw.correct_ko_picks ?? 0,
+      correctOutcomes: raw.correct_outcomes ?? 0,
+    });
+  };
+
+  for (const r of ranked ?? []) {
+    const tab = r.challenge_id == null ? null : kindById.get(r.challenge_id);
+    if (!tab) continue;
+    push(tab, r.board === "hardcore" ? "hardcore" : "global", r);
+  }
+  for (const r of overall ?? []) {
+    push("overall", r.board === "hardcore" ? "hardcore" : "global", {
+      ...r,
+      challenge_id: null,
+    });
+  }
+  return out;
+}

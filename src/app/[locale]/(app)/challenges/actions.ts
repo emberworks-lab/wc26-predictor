@@ -40,3 +40,23 @@ export async function setHardcore(formData: FormData) {
     .eq("id", entryId);
   revalidatePath("/[locale]/challenges", "page");
 }
+
+/**
+ * Submit an entry → it now participates in the leaderboards (Stage 9 item 4).
+ * RLS does the real enforcement: entries_update requires `user_id = auth.uid()`
+ * and the challenge not locked, so a submit after the deadline is refused and a
+ * once-submitted entry can never be edited/withdrawn post-lock. Submitting is
+ * allowed with incomplete picks (missing ones simply score 0). Editing
+ * predictions afterwards keeps the entry submitted — submitted stays submitted.
+ */
+export async function submitEntry(formData: FormData) {
+  const entryId = String(formData.get("entryId") ?? "");
+  if (!entryId) return;
+
+  const supabase = await createClient();
+  await supabase
+    .from("challenge_entries")
+    .update({ submitted_at: new Date().toISOString() })
+    .eq("id", entryId);
+  revalidatePath("/[locale]/challenges", "page");
+}
