@@ -110,7 +110,17 @@
     "lockedHint": "This challenge is locked — predictions are frozen.",
     "playoffJoinHint": "Come back once the group stage is done.",
     "predict": "Make predictions",
-    "viewPredictions": "View predictions"
+    "viewPredictions": "View predictions",
+    "editPredictions": "Edit predictions",
+    "submit": "Submit",
+    "submitted": "Submitted",
+    "submitGateHint": "Your entry joins the leaderboard only after you submit.",
+    "submitWarning": "{count, plural, =1 {1 pick still missing — it'll score 0} other {# picks still missing — they'll score 0}}. You can submit now and keep editing until the deadline.",
+    "groupProgress": "Groups {done}/{available}",
+    "groupLocked": "({count, plural, =1 {1 locked before you joined} other {# locked before you joined}})",
+    "bracketProgress": "Bracket {done}/{total}",
+    "championLabel": "Champion: {name}",
+    "funProgress": "Answered {done}/{total}"
   },
   "Predict": {
     "titles": {
@@ -169,8 +179,8 @@
       "thirdPlaceMatch": "Third-place match",
       "finalMatch": "Final",
       "tbd": "Winner unknown",
-      "pickHint": "Tap a team to send it through.",
-      "scoreHint": "Set the 90-minute score — on a draw, pick who advances.",
+      "pickHint": "Pick who you think goes through — extra time and penalties included.",
+      "scoreHint": "Predict the score after 90 minutes (regulation time). If it's a draw, also pick who goes through on extra time / penalties.",
       "advancerPrompt": "Who advances?",
       "aet": "Extra time / penalties",
       "staleCleared": "{count, plural, =1 {1 downstream pick was} other {# downstream picks were}} cleared — that team no longer reaches there.",

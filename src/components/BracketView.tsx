@@ -305,26 +305,40 @@ export default function BracketView({
   const picksLeft = sim.matches.filter((m) => m.winner === undefined).length;
   const staleSet = new Set(stale);
   const roundMatches = sim.matches.filter((m) => m.round === round);
+  // A round bubble turns green/✓ once every match in it has a winner picked
+  // (mirrors the group A–L bubbles in PredictionFlow).
+  const roundComplete = (r: KnockoutRound): boolean => {
+    const ms = sim.matches.filter((m) => m.round === r);
+    return ms.length > 0 && ms.every((m) => m.winner !== undefined);
+  };
   const champion = sim.champion ? index.byCode.get(sim.champion) : undefined;
   const thirdPlace = sim.thirdPlaceWinner ? index.byCode.get(sim.thirdPlaceWinner) : undefined;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-1.5">
-          {KO_ROUND_ORDER.map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRound(r)}
-              className={[
-                "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-                r === round ? "bg-gold-500 text-pitch-950" : "bg-pitch-800 text-text-muted hover:text-text-primary",
-              ].join(" ")}
-            >
-              {t(`rounds.${r}`)}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-1.5">
+          {KO_ROUND_ORDER.map((r) => {
+            const complete = roundComplete(r);
+            return (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRound(r)}
+                className={[
+                  "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                  r === round
+                    ? "bg-gold-500 text-pitch-950"
+                    : complete
+                      ? "bg-pitch-800 text-success hover:text-success"
+                      : "bg-pitch-800 text-text-muted hover:text-text-primary",
+                ].join(" ")}
+              >
+                {t(`rounds.${r}`)}
+                {complete && r !== round ? " ✓" : ""}
+              </button>
+            );
+          })}
         </div>
         {mode === "predict" && (
           <span className="text-[11px] font-semibold text-text-muted">

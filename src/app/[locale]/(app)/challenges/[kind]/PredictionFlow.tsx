@@ -369,7 +369,7 @@ export default function PredictionFlow({
       </div>
 
       {/* navigation: group chips + thirds + bracket */}
-      <nav className="flex gap-1.5 overflow-x-auto pb-1" aria-label={t("nav.groupsLabel")}>
+      <nav className="flex flex-wrap gap-1.5 pb-1" aria-label={t("nav.groupsLabel")}>
         {GROUP_IDS.map((g) => {
           const dg = derived.byGroup.get(g);
           const active = view.kind === "group" && view.group === g;

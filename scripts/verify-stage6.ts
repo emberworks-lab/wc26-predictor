@@ -119,7 +119,7 @@ async function main() {
     ] as const) {
       const { data, error } = await admin
         .from('challenge_entries')
-        .insert({ user_id: uid, challenge_id: fullId, hardcore })
+        .insert({ user_id: uid, challenge_id: fullId, hardcore, submitted_at: new Date().toISOString() })
         .select('id')
         .single();
       if (error) throw new Error(`entry ${uid}: ${error.message}`);

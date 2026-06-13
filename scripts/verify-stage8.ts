@@ -148,7 +148,7 @@ async function main() {
 
     const { data: entryC, error: entryErr } = await clientC
       .from('challenge_entries')
-      .insert({ user_id: userC, challenge_id: fullId, hardcore: false })
+      .insert({ user_id: userC, challenge_id: fullId, hardcore: false, submitted_at: new Date().toISOString() })
       .select('id')
       .single();
     if (entryErr || !entryC) throw new Error(`join full: ${entryErr?.message}`);
@@ -308,7 +308,7 @@ async function main() {
     // 12./13. fun actuals drive scoring (replicates saveFunCorrectAnswer)
     const { data: funEntry, error: funErr } = await clientC
       .from('challenge_entries')
-      .insert({ user_id: userC, challenge_id: funId, hardcore: false })
+      .insert({ user_id: userC, challenge_id: funId, hardcore: false, submitted_at: new Date().toISOString() })
       .select('id')
       .single();
     if (funErr || !funEntry) throw new Error(`join fun: ${funErr?.message}`);

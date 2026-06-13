@@ -105,6 +105,7 @@ export type Database = {
           created_at: string
           hardcore: boolean
           id: string
+          submitted_at: string | null
           user_id: string
         }
         Insert: {
@@ -112,6 +113,7 @@ export type Database = {
           created_at?: string
           hardcore?: boolean
           id?: string
+          submitted_at?: string | null
           user_id: string
         }
         Update: {
@@ -119,6 +121,7 @@ export type Database = {
           created_at?: string
           hardcore?: boolean
           id?: string
+          submitted_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -846,6 +849,7 @@ export type Database = {
           global_points: number | null
           hardcore: boolean | null
           hardcore_points: number | null
+          submitted_at: string | null
           user_id: string | null
         }
         Relationships: [

@@ -88,14 +88,17 @@ async function main() {
     const { data: challenges } = await clientA.from('challenges').select('id, kind');
     const fullId = challenges!.find((c) => c.kind === 'full')!.id;
 
+    // submitted_at set so the entry participates in the leaderboard views
+    // (Stage 9 item 4 gate) — needed for the banned-hidden-from-boards checks.
+    const submittedNow = new Date().toISOString();
     const { data: entryA } = await clientA
       .from('challenge_entries')
-      .insert({ user_id: userA, challenge_id: fullId, hardcore: false })
+      .insert({ user_id: userA, challenge_id: fullId, hardcore: false, submitted_at: submittedNow })
       .select('id')
       .single();
     const { data: entryB } = await clientB
       .from('challenge_entries')
-      .insert({ user_id: userB, challenge_id: fullId, hardcore: true })
+      .insert({ user_id: userB, challenge_id: fullId, hardcore: true, submitted_at: submittedNow })
       .select('id')
       .single();
     if (!entryA || !entryB) throw new Error('joining the Full challenge failed — cannot continue');

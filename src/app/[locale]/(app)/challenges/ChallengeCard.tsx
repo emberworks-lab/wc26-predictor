@@ -4,8 +4,9 @@ import Countdown from "@/components/Countdown";
 import KickoffTime from "@/components/KickoffTime";
 import { isChallengeOpen } from "@/engine/locks";
 import { Link } from "@/i18n/navigation";
+import type { EntryCompletion } from "@/lib/predictions/completion";
 
-import { joinChallenge, setHardcore } from "./actions";
+import { joinChallenge, setHardcore, submitEntry } from "./actions";
 
 export interface ChallengeRow {
   id: number;
@@ -18,6 +19,7 @@ export interface ChallengeRow {
 export interface EntryRow {
   id: string;
   hardcore: boolean;
+  submitted_at: string | null;
 }
 
 const EMOJI: Record<ChallengeRow["kind"], string> = {
@@ -48,21 +50,36 @@ function statusOf(challenge: ChallengeRow, now: Date): Status {
             ? "LOCKED"
             : null,
     },
-    now
+    now,
   );
   return open ? "open" : "locked";
+}
+
+/** Total still-fillable picks the user hasn't made (drives the submit warning). */
+function missingPicks(completion: EntryCompletion | null): number {
+  if (!completion) return 0;
+  let m = 0;
+  if (completion.group) m += completion.group.available - completion.group.done;
+  if (completion.bracket) m += completion.bracket.total - completion.bracket.done;
+  if (completion.fun) m += completion.fun.total - completion.fun.done;
+  return m;
 }
 
 export default async function ChallengeCard({
   challenge,
   entry,
+  completion,
 }: {
   challenge: ChallengeRow;
   entry: EntryRow | null;
+  completion?: EntryCompletion | null;
 }) {
   const t = await getTranslations("ChallengesHome");
   const tc = await getTranslations("Challenges.items");
   const status = statusOf(challenge, new Date());
+  const submitted = entry?.submitted_at != null;
+  const missing = missingPicks(completion ?? null);
+  const check = <span className="text-success">✓</span>;
 
   return (
     <article className="flex flex-col gap-3 rounded-2xl border border-pitch-700 bg-pitch-800 p-5">
@@ -73,9 +90,7 @@ export default async function ChallengeCard({
           </span>
           <div>
             <h2 className="font-bold">{tc(`${challenge.kind}.title`)}</h2>
-            <p className="text-sm text-text-muted">
-              {tc(`${challenge.kind}.description`)}
-            </p>
+            <p className="text-sm text-text-muted">{tc(`${challenge.kind}.description`)}</p>
           </div>
         </div>
         <span
@@ -111,11 +126,16 @@ export default async function ChallengeCard({
       {entry ? (
         <div className="flex flex-col gap-3 rounded-xl border border-pitch-700 bg-pitch-900 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-sm font-semibold text-success">
+            <span className="flex items-center gap-2 text-sm font-semibold text-success">
               {t("joined")}
               {entry.hardcore && (
-                <span className="ml-2 rounded-full bg-gold-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-gold-400">
+                <span className="rounded-full bg-gold-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-gold-400">
                   {t("hardcoreBadge")}
+                </span>
+              )}
+              {submitted && (
+                <span className="rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-success">
+                  {t("submitted")}
                 </span>
               )}
             </span>
@@ -136,12 +156,88 @@ export default async function ChallengeCard({
               </form>
             )}
           </div>
-          <Link
-            href={`/challenges/${challenge.kind}`}
-            className="self-start rounded-full bg-gold-500 px-5 py-2 text-xs font-semibold text-pitch-950 transition-colors hover:bg-gold-400"
-          >
-            {status === "open" ? t("predict") : t("viewPredictions")}
-          </Link>
+
+          {completion && (
+            <div className="flex flex-col gap-0.5 text-xs text-text-muted">
+              {completion.group && (
+                <span>
+                  {t("groupProgress", {
+                    done: completion.group.done,
+                    available: completion.group.available,
+                  })}{" "}
+                  {completion.group.complete && check}
+                  {completion.group.locked > 0 && (
+                    <span className="text-text-muted/70">
+                      {" "}
+                      {t("groupLocked", { count: completion.group.locked })}
+                    </span>
+                  )}
+                </span>
+              )}
+              {completion.bracket && (
+                <span>
+                  {t("bracketProgress", {
+                    done: completion.bracket.done,
+                    total: completion.bracket.total,
+                  })}{" "}
+                  {completion.bracket.complete && check}
+                  {completion.bracket.championName && (
+                    <span className="text-text-primary">
+                      {" · "}
+                      {t("championLabel", { name: completion.bracket.championName })}
+                    </span>
+                  )}
+                </span>
+              )}
+              {completion.fun && (
+                <span>
+                  {t("funProgress", {
+                    done: completion.fun.done,
+                    total: completion.fun.total,
+                  })}{" "}
+                  {completion.fun.complete && check}
+                </span>
+              )}
+            </div>
+          )}
+
+          {status === "open" && !submitted && missing > 0 && (
+            <p className="rounded-lg bg-gold-500/10 px-3 py-2 text-[11px] text-gold-400">
+              {t("submitWarning", { count: missing })}
+            </p>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`/challenges/${challenge.kind}`}
+              className={[
+                "rounded-full px-5 py-2 text-xs font-semibold transition-colors",
+                status === "open" && submitted
+                  ? "border border-pitch-700 bg-pitch-800 text-text-primary hover:border-gold-500/40"
+                  : "bg-gold-500 text-pitch-950 hover:bg-gold-400",
+              ].join(" ")}
+            >
+              {status !== "open"
+                ? t("viewPredictions")
+                : submitted
+                  ? t("editPredictions")
+                  : t("predict")}
+            </Link>
+            {status === "open" && !submitted && (
+              <form action={submitEntry}>
+                <input type="hidden" name="entryId" value={entry.id} />
+                <button
+                  type="submit"
+                  className="rounded-full bg-gold-500 px-5 py-2 text-xs font-semibold text-pitch-950 transition-colors hover:bg-gold-400"
+                >
+                  {t("submit")}
+                </button>
+              </form>
+            )}
+          </div>
+          {status === "open" && !submitted && (
+            <p className="text-[11px] text-text-muted">{t("submitGateHint")}</p>
+          )}
         </div>
       ) : status === "open" ? (
         <form

@@ -236,7 +236,7 @@ async function main() {
   const mkEntry = async (userId: string, kind: string, hc: boolean): Promise<string> => {
     const { data, error } = await admin
       .from('challenge_entries')
-      .insert({ user_id: userId, challenge_id: ids.get(kind)!, hardcore: hc })
+      .insert({ user_id: userId, challenge_id: ids.get(kind)!, hardcore: hc, submitted_at: new Date().toISOString() })
       .select('id')
       .single();
     if (error) throw new Error(`entry ${kind}: ${error.message}`);
@@ -248,7 +248,7 @@ async function main() {
   // fun: user joins themselves (challenge open → RLS allows)
   const { data: funEntryRow, error: funJoinErr } = await funUser.client
     .from('challenge_entries')
-    .insert({ user_id: funUser.id, challenge_id: ids.get('fun')!, hardcore: false })
+    .insert({ user_id: funUser.id, challenge_id: ids.get('fun')!, hardcore: false, submitted_at: new Date().toISOString() })
     .select('id')
     .single();
   check('fun: user joins the open challenge', !funJoinErr, funJoinErr?.message);
@@ -284,7 +284,7 @@ async function main() {
   // --- 3. playoff join + picks via RLS ------------------------------------------
   const { data: poEntryRow, error: poJoinErr } = await playoffUser.client
     .from('challenge_entries')
-    .insert({ user_id: playoffUser.id, challenge_id: ids.get('playoff')!, hardcore: false })
+    .insert({ user_id: playoffUser.id, challenge_id: ids.get('playoff')!, hardcore: false, submitted_at: new Date().toISOString() })
     .select('id')
     .single();
   check('playoff: join after the flip succeeds', !poJoinErr, poJoinErr?.message);

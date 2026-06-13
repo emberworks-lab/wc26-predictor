@@ -14,49 +14,6 @@
 
 ## Backlog
 
-### 4. Explicit Submit + completion state; "70/72" reads as a bug — `open` · medium · P0-prelock
-*2026-06-13, manual testing after Stage 6; submit requirement confirmed by Anton.*
-Anton finished the ENTIRE Full prediction (all groups + whole bracket incl. final and
-third-place) and the card still says "70 / 72 picks" with no submit button — he concluded
-his final/3rd-place picks didn't save. Almost certainly they DID (autosave on click;
-70/72 = 72 group matches minus the 2 group-A matches locked before he joined), but:
-- VERIFY first against prod data that his bracket rows (incl. final + third place) exist.
-- Counter must not count permanently-locked matches against the user: show "70/70" or
-  "70/70 available (2 locked)".
-- The challenge card should reflect BOTH parts: group picks AND bracket completion
-  ("Bracket: 32/32 ✓ Champion: X").
-- **Product requirement (Anton): an explicit Submit button per challenge — only after
-  submitting does the entry participate in the leaderboard.** After submit the button
-  becomes "Edit predictions" (re-opens editing until the challenge lock; resubmit not
-  required after every edit — submitted stays submitted). Autosave behavior stays as the
-  draft mechanism underneath.
-  Implementation notes: `submitted_at timestamptz` on `challenge_entries` (user-settable
-  while unlocked, RLS-guarded); leaderboard views filter `submitted_at is not null`;
-  **migration must grandfather all entries existing at migration time (set
-  `submitted_at = now()`)** so current real users don't vanish from the boards; Submit is
-  allowed even with incomplete picks (warn: "N picks missing — they'll score 0").
-  Post-group-stage knockout re-picks (redistribution with falling multiplier) are NOT
-  part of this item — that mechanic exists per SPEC and ships in Stage 7.
-
-### 5. Group stepper bubbles overflow on small screens — `open` · small · P0-prelock
-*2026-06-13, manual testing after Stage 6.*
-The A–L group bubbles strip is a single row; on narrow viewports it grows a horizontal
-scrollbar. Make it wrap into multiple rows (flex-wrap) on small screens.
-
-### 6. Knockout round bubbles don't show completion — `open` · small · P0-prelock
-*2026-06-13, manual testing after Stage 6.*
-In the Full knockout picker (and presumably the Playoff challenge, which reuses it), the
-round tabs/bubbles (R32/R16/QF/SF/F) don't turn green/checked when every match of the
-round is predicted — unlike the group bubbles. Add the same completed state.
-
-### 7. Leaderboard sub-tab switching is very slow — `open` · medium · P0-prelock
-*2026-06-13, manual testing after Stage 6.*
-Top-level nav got faster (Stage 6 skeletons+prefetch), but switching BETWEEN leaderboards
-(challenge tabs, Global/Hardcore) feels dead slow — "no cache, no prefetch" feeling.
-Fix candidates: make board switching client-side over preloaded data (fetch all boards in
-one query/payload — N is small), or prefetch sibling tabs + `revalidate` caching for the
-ranked views, or both. Measure before/after.
-
 ### 3. Copy predictions as a template across challenges — `open` · large · P1
 *2026-06-13, feature idea after Stage 5.*
 A user who completed the Full Tournament challenge should be able to one-click copy those
@@ -109,14 +66,6 @@ Schedule already has a live indicator; surface "LIVE" consistently anywhere a ma
 appears (group pages, wizards' locked rows, match details, challenge cards countdown
 area if a relevant match is in play).
 
-### 13. Knockout copy: "90-minute score" wording is misleading — `open` · small · P0-prelock (copy only)
-*2026-06-13.*
-UI says you predict the 90' result; Anton expected "90 + extra time". The MECHANIC stays
-as is (predict regulation-time result; on a draw pick who advances — covers ET+pens);
-changing scoring semantics mid-tournament after entries exist is forbidden. Fix the COPY
-in both locales to explain precisely: "score after 90 minutes; if a draw, also pick who
-goes through (extra time / penalties)".
-
 ### 14. Better score input UI (hardcore steppers feel clunky) — `open` · medium · P2
 *2026-06-13.*
 Rework the score picker: bigger tap targets, maybe a quick numeric pad / common-score
@@ -153,6 +102,50 @@ which such predictions exist for WC26 in machine-readable/transcribable form; co
 caution — facts (who advances) are fine, verbatim articles are not.
 
 ## Done
+
+### 4. Explicit Submit + completion state; "70/72" reads as a bug — ✅ PR #11 (Stage 9 iter 1)
+*Fixed 2026-06-13.* Root cause of the "70/72" confusion: the counter denominator
+included the 2 (now 4) group matches that kicked off before the user joined — permanently
+unpredictable, so it can never reach 72. **Fix:** new `submitted_at timestamptz` on
+`challenge_entries` (migration `20260613000000_submit_gating`, user-settable while unlocked
+via the existing entries_update RLS, **all existing entries grandfathered to `now()`**);
+`leaderboard_totals`/`leaderboard_entry_rows` filter `submitted_at is not null` so only
+submitted entries rank. Challenge cards now show honest completion — "Groups 68/68 ✓
+(4 locked before you joined)", "Bracket N/32 · Champion: X", "Answered N/12" — plus an
+explicit **Submit** button (warns "N picks missing — they'll score 0"; allowed anyway)
+that becomes **Edit predictions** + a "Submitted" badge after submitting; submitted stays
+submitted across edits. Pure helper `src/lib/predictions/completion.ts` (unit-tested).
+Verified on prod: migration grandfathered 3/3 entries (still on boards); 25/25 RLS checks
+pass incl. submit-gated board visibility; UI confirmed via throwaway user — card showed
+"68/68 ✓ (4 locked)", Submit → SUBMITTED + Edit predictions, DB gate flipped the user onto
+the board only after submit (throwaway user cleaned up).
+
+### 5. Group stepper bubbles overflow on small screens — ✅ PR #11 (Stage 9 iter 1)
+*Fixed 2026-06-13.* The A–L strip used `overflow-x-auto` (horizontal scrollbar on narrow
+screens). Changed `PredictionFlow` nav to `flex flex-wrap` (chips already `shrink-0`), so
+it wraps to multiple rows. Verified visually — bubbles wrap and keep their ✓ completion.
+
+### 6. Knockout round bubbles don't show completion — ✅ PR #11 (Stage 9 iter 1)
+*Fixed 2026-06-13.* `BracketView` round tabs (R32/R16/QF/SF/F) now compute completion
+(`every match in the round has a winner`) and render green + " ✓" exactly like the group
+bubbles. Shared by Full + Playoff (both use `BracketView`). Round tab row also `flex-wrap`.
+
+### 7. Leaderboard sub-tab switching is very slow — ✅ PR #11 (Stage 9 iter 1)
+*Fixed 2026-06-13.* Each board switch was a full server navigation with ~4 sequential
+queries per board. **Fix:** new `fetchAllBoards()` loads every board (overall + 4
+challenges × global/hardcore) in ~5 queries total (shared movement baseline, one
+`leaderboard_ranked` + one `leaderboard_overall_ranked` sweep); the page hands the whole
+payload to a client `LeaderboardsBrowser` that switches tab/board purely in state (no
+navigation, no refetch) and syncs the URL via `history.replaceState`. SSR + deep-linking
+verified (`?c=full&b=global` renders the right board with movement badges and the
+"your position" card). Interactivity follows the same useState/onClick pattern as the live
+PredictionFlow; final confirmation on the deployed URL post-merge.
+
+### 13. Knockout copy: "90-minute score" wording is misleading — ✅ PR #11 (Stage 9 iter 1)
+*Fixed 2026-06-13.* Mechanic unchanged (predict regulation-time result; on a draw pick who
+advances — covers ET/pens). Reworded `Predict.bracket.scoreHint`/`pickHint` in both
+locales to be precise: "Predict the score after 90 minutes (regulation time). If it's a
+draw, also pick who goes through on extra time / penalties." Covers Full + Playoff.
 
 ### 1. Pointer cursor missing on clickable elements — ✅ Stage 6 PR
 *2026-06-13, manual testing after Stage 5. Fixed 2026-06-12 (Stage 6 session).*
