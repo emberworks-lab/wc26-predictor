@@ -1,3 +1,4 @@
+import { Flame } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { createClient } from "@/lib/supabase/server";
@@ -61,9 +62,10 @@ export default async function ProfilePage({
               {hardcoreKinds.map((kind) => (
                 <span
                   key={kind}
-                  className="rounded-full bg-gold-500/15 px-3 py-1 text-xs font-semibold text-gold-400"
+                  className="inline-flex items-center gap-1 rounded-full bg-gold-500/15 px-3 py-1 text-xs font-semibold text-gold-400"
                 >
-                  🔥 {tc(`${kind}.title`)}
+                  <Flame className="size-3.5" aria-hidden="true" />
+                  {tc(`${kind}.title`)}
                 </span>
               ))}
             </div>

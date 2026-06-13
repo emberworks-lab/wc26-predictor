@@ -9,32 +9,21 @@
     },
     "admin": "Admin"
   },
-  "Hero": {
-    "title": "Predict the 2026 World Cup",
-    "tagline": "Beat your friends. Glory awaits.",
-    "hosts": "🇺🇸 🇲🇽 🇨🇦",
-    "signInButton": "Sign in to play"
-  },
   "Challenges": {
-    "heading": "Four ways to compete",
     "items": {
       "full": {
-        "emoji": "🏆",
         "title": "Full Tournament",
         "description": "Predict every match from group stage to the final."
       },
       "groups": {
-        "emoji": "📊",
         "title": "Groups Only",
         "description": "Pick group-stage winners and see how you rank."
       },
       "playoff": {
-        "emoji": "⚔️",
         "title": "Playoff Only",
         "description": "Focus on the knockout rounds — big points, big pressure."
       },
       "fun": {
-        "emoji": "🎲",
         "title": "Fun Picks",
         "description": "Wild-card questions and bonus predictions for extra points."
       }
@@ -82,7 +71,7 @@
       "en": "English",
       "uk": "Українська"
     },
-    "hardcoreTitle": "Hardcore mode 🔥",
+    "hardcoreTitle": "Hardcore mode",
     "hardcoreBody": "When joining a challenge you can flip on hardcore: you predict exact scores instead of just outcomes and compete on a separate bonus leaderboard too. You can toggle it per challenge until that challenge locks.",
     "submit": "Start playing",
     "saving": "Saving…",
@@ -120,7 +109,21 @@
     "groupLocked": "({count, plural, =1 {1 locked before you joined} other {# locked before you joined}})",
     "bracketProgress": "Bracket {done}/{total}",
     "championLabel": "Champion: {name}",
-    "funProgress": "Answered {done}/{total}"
+    "funProgress": "Answered {done}/{total}",
+    "copy": {
+      "button": "Copy from Full Tournament",
+      "copying": "Copying…",
+      "confirm": "Prefill this challenge with your Full Tournament predictions? It overwrites your current picks here for matches that haven't kicked off — you can still edit afterwards.",
+      "done": "Prefilled {count, plural, =1 {1 prediction} other {# predictions}} from your Full Tournament.",
+      "skippedLocked": "{count, plural, =1 {1 already kicked off} other {# already kicked off}}.",
+      "skippedNeedsScore": "{count, plural, =1 {1 needs an exact score} other {# need exact scores}} — add by hand.",
+      "skippedMismatch": "{count, plural, =1 {1 left empty (your bracket differs from the real one)} other {# left empty (your bracket differs from the real one)}}.",
+      "error": {
+        "invalid": "Couldn't copy — try reloading the page.",
+        "locked": "This challenge is locked — copying is closed.",
+        "error": "Something went wrong copying. Please try again."
+      }
+    }
   },
   "Predict": {
     "titles": {
@@ -330,6 +333,7 @@
     "championPick": "Champion pick",
     "noChampionOwn": "No champion picked yet.",
     "hiddenUntilLock": "Hidden until the challenge locks.",
+    "predictedBracket": "Predicted bracket",
     "categories": {
       "GROUP_OUTCOME": "Correct match outcomes",
       "GROUP_EXACT_ORDER": "Exact group orders",
@@ -337,9 +341,9 @@
       "QUALIFIER_THIRD": "Third-place qualifiers",
       "KO_REACH": "Teams reaching knockout rounds",
       "KO_AET_FLAG": "Extra time / penalty calls",
-      "HC_EXACT_SCORE": "Exact scores 🔥",
-      "HC_GOAL_DIFF": "Correct goal differences 🔥",
-      "HC_ADVANCE_PICK": "Shootout advancers 🔥",
+      "HC_EXACT_SCORE": "Exact scores",
+      "HC_GOAL_DIFF": "Correct goal differences",
+      "HC_ADVANCE_PICK": "Shootout advancers",
       "FUN": "Fun answers"
     }
   },

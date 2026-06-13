@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 
+import { CHALLENGE_ICON } from "@/components/ChallengeIcon";
 import Countdown from "@/components/Countdown";
 import KickoffTime from "@/components/KickoffTime";
 import { isChallengeOpen } from "@/engine/locks";
@@ -7,6 +8,7 @@ import { Link } from "@/i18n/navigation";
 import type { EntryCompletion } from "@/lib/predictions/completion";
 
 import { joinChallenge, setHardcore, submitEntry } from "./actions";
+import CopyFromFull from "./CopyFromFull";
 
 export interface ChallengeRow {
   id: number;
@@ -21,13 +23,6 @@ export interface EntryRow {
   hardcore: boolean;
   submitted_at: string | null;
 }
-
-const EMOJI: Record<ChallengeRow["kind"], string> = {
-  full: "🏆",
-  groups: "📊",
-  playoff: "⚔️",
-  fun: "🎲",
-};
 
 /** Playoff `opens_at` far-future sentinel = "waiting for the group stage". */
 const isOpensSentinel = (opensAt: string | null) =>
@@ -69,10 +64,13 @@ export default async function ChallengeCard({
   challenge,
   entry,
   completion,
+  copySourceEntryId,
 }: {
   challenge: ChallengeRow;
   entry: EntryRow | null;
   completion?: EntryCompletion | null;
+  /** Full entry id to offer "copy as template" from (Stage 9 item 3). */
+  copySourceEntryId?: string | null;
 }) {
   const t = await getTranslations("ChallengesHome");
   const tc = await getTranslations("Challenges.items");
@@ -80,13 +78,17 @@ export default async function ChallengeCard({
   const submitted = entry?.submitted_at != null;
   const missing = missingPicks(completion ?? null);
   const check = <span className="text-success">✓</span>;
+  const Icon = CHALLENGE_ICON[challenge.kind];
 
   return (
     <article className="flex flex-col gap-3 rounded-2xl border border-pitch-700 bg-pitch-800 p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span aria-hidden="true" className="text-2xl">
-            {EMOJI[challenge.kind]}
+          <span
+            aria-hidden="true"
+            className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gold-500/10 text-gold-400"
+          >
+            <Icon className="size-5" />
           </span>
           <div>
             <h2 className="font-bold">{tc(`${challenge.kind}.title`)}</h2>
@@ -237,6 +239,12 @@ export default async function ChallengeCard({
           </div>
           {status === "open" && !submitted && (
             <p className="text-[11px] text-text-muted">{t("submitGateHint")}</p>
+          )}
+
+          {status === "open" && copySourceEntryId && (
+            <div className="border-t border-pitch-700 pt-3">
+              <CopyFromFull sourceEntryId={copySourceEntryId} targetEntryId={entry.id} />
+            </div>
           )}
         </div>
       ) : status === "open" ? (

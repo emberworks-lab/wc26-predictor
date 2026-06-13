@@ -1,5 +1,6 @@
 "use client";
 
+import { Medal, Trophy } from "lucide-react";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -386,9 +387,7 @@ export default function BracketView({
         <div className="flex flex-col gap-2 rounded-2xl border border-gold-500/40 bg-pitch-800 p-5">
           {champion && (
             <p className="flex items-center gap-3">
-              <span className="text-2xl" aria-hidden="true">
-                🏆
-              </span>
+              <Trophy className="size-7 shrink-0 text-gold-400" aria-hidden="true" />
               <span>
                 <span className="block text-[11px] uppercase tracking-wider text-text-muted">
                   {t("champion")}
@@ -401,9 +400,7 @@ export default function BracketView({
           )}
           {thirdPlace && (
             <p className="flex items-center gap-3">
-              <span className="text-2xl" aria-hidden="true">
-                🥉
-              </span>
+              <Medal className="size-7 shrink-0 text-amber-700" aria-hidden="true" />
               <span>
                 <span className="block text-[11px] uppercase tracking-wider text-text-muted">
                   {t("thirdPlace")}

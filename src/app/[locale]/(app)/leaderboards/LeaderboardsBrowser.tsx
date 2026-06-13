@@ -1,5 +1,6 @@
 "use client";
 
+import { Flame, Medal } from "lucide-react";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -116,7 +117,14 @@ export default function LeaderboardsBrowser({
                 : "bg-pitch-900 text-text-muted hover:text-text-primary",
             ].join(" ")}
           >
-            {b === "hardcore" ? `🔥 ${t("boardHardcore")}` : t("boardGlobal")}
+            {b === "hardcore" ? (
+              <span className="inline-flex items-center gap-1">
+                <Flame className="size-3.5" aria-hidden="true" />
+                {t("boardHardcore")}
+              </span>
+            ) : (
+              t("boardGlobal")
+            )}
           </button>
         ))}
       </div>
@@ -141,9 +149,7 @@ export default function LeaderboardsBrowser({
 
       {rows.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-pitch-700 bg-pitch-800 p-10 text-center">
-          <span aria-hidden="true" className="text-3xl">
-            🥇
-          </span>
+          <Medal className="size-8 text-text-muted" aria-hidden="true" />
           <p className="text-sm text-text-muted">{t("empty")}</p>
         </div>
       ) : (

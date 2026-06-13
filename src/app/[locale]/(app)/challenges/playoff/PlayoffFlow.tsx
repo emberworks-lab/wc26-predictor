@@ -1,5 +1,6 @@
 "use client";
 
+import { Flame } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -162,8 +163,8 @@ export default function PlayoffFlow({
           <h1 className="text-xl font-extrabold tracking-tight">
             {t("title")}
             {entry.hardcore && (
-              <span className="ml-2 align-middle rounded-full bg-gold-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-gold-400">
-                🔥
+              <span className="ml-2 inline-flex items-center align-middle rounded-full bg-gold-500/15 px-1.5 py-1 text-gold-400">
+                <Flame className="size-3" aria-hidden="true" />
               </span>
             )}
           </h1>
