@@ -149,4 +149,30 @@ describe("planPlayoffCopy", () => {
     expect(plan.rows).toHaveLength(0);
     expect(plan.skippedNeedsScore).toBe(1);
   });
+
+  it("copies downstream rounds when the source aligns with the real R32", () => {
+    // Source is a redistribution-style bracket: its R32 matches reality, plus a
+    // derived R16 pick (slot 89) on the advancers.
+    const alignedReal: RealBracketSlot[] = [{ slot: 73, homeTeamId: 10, awayTeamId: 20, locked: false }];
+    const predicted: PredictedBracketSlot[] = [
+      { slot: 73, homeTeamId: 10, awayTeamId: 20, winnerTeamId: 10, homeScore: null, awayScore: null, aetPens: null },
+      { slot: 89, homeTeamId: 10, awayTeamId: 50, winnerTeamId: 50, homeScore: null, awayScore: null, aetPens: null },
+    ];
+    const plan = planPlayoffCopy(predicted, alignedReal, false);
+    expect(plan.skippedMismatch).toBe(0);
+    expect(plan.rows.map((r) => r.slot).sort()).toEqual([73, 89]);
+    expect(plan.rows.find((r) => r.slot === 89)).toMatchObject({ winnerTeamId: 50 });
+  });
+
+  it("leaves downstream rounds out when any R32 slot mismatches reality", () => {
+    // Predicted slot 74 pairing (30 vs 40) differs from reality (30 vs 99).
+    const predicted: PredictedBracketSlot[] = [
+      { slot: 73, homeTeamId: 10, awayTeamId: 20, winnerTeamId: 10, homeScore: null, awayScore: null, aetPens: null },
+      { slot: 74, homeTeamId: 30, awayTeamId: 40, winnerTeamId: 30, homeScore: null, awayScore: null, aetPens: null },
+      { slot: 89, homeTeamId: 10, awayTeamId: 30, winnerTeamId: 10, homeScore: null, awayScore: null, aetPens: null },
+    ];
+    const plan = planPlayoffCopy(predicted, real, false);
+    expect(plan.skippedMismatch).toBe(1);
+    expect(plan.rows.map((r) => r.slot)).toEqual([73]); // no downstream slot 89
+  });
 });

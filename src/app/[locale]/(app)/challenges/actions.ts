@@ -271,7 +271,7 @@ async function copyPlayoff(
       )
       .eq("entry_id", source.id)
       .gte("slot", 73)
-      .lte("slot", 88),
+      .lte("slot", 104),
     supabase
       .from("matches")
       .select("fifa_match_number, kickoff_utc, status, home_team_id, away_team_id")
