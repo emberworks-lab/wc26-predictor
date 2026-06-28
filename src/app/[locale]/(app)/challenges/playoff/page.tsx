@@ -38,10 +38,10 @@ export default async function PlayoffPage({
     .maybeSingle();
   if (!entry) redirect({ href: "/challenges", locale });
 
-  // Copy-as-template source: the user's Full entry, offered in-flow when it
-  // actually has generation-0 R32 picks to prefill from (copyPlayoff reads
-  // generation 0). Mirrors the challenges-card gating, surfaced where the user
-  // is — the join redirect drops them straight into this flow.
+  // Copy-as-template source: the user's Full entry, offered in-flow when it has
+  // R32 picks to prefill from (copyPlayoff copies the latest generation, so any
+  // generation's R32 winners qualify). Mirrors the challenges-card gating,
+  // surfaced where the user is — the join redirect drops them into this flow.
   const { data: fullEntry } = await supabase
     .from("challenge_entries")
     .select("id, challenges!inner(kind)")
@@ -54,7 +54,6 @@ export default async function PlayoffPage({
       .from("bracket_predictions")
       .select("slot", { count: "exact", head: true })
       .eq("entry_id", fullEntry.id)
-      .eq("generation", 0)
       .gte("slot", 73)
       .lte("slot", 88)
       .not("winner_team_id", "is", null);

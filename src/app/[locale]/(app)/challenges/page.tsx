@@ -152,12 +152,12 @@ export default async function ChallengesPage() {
   // Playoff (R32 picks) when the user's Full entry actually has those picks.
   const fullHasGroupPreds =
     !!fullEntry && (groupPreds ?? []).some((p) => p.entry_id === fullEntry.id);
-  // Copy source reads the Full entry's GENERATION-0 R32 picks (copyPlayoff
-  // copies from generation 0), so the check must ignore redistribution rows.
+  // Copy source uses the Full entry's LATEST-generation R32 picks (copyPlayoff
+  // copies the latest bracket), so any R32 winner across generations qualifies.
   const fullHasR32Picks =
     !!fullEntry &&
     (bracketRows ?? []).some(
-      (b) => b.generation === 0 && b.slot >= 73 && b.slot <= 88 && b.winner_team_id != null,
+      (b) => b.slot >= 73 && b.slot <= 88 && b.winner_team_id != null,
     );
   const copySourceFor = (kind: ChallengeRow["kind"]): string | null => {
     if (!fullEntry) return null;
