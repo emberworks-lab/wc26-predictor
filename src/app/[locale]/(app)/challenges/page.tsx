@@ -43,6 +43,7 @@ export default async function ChallengesPage() {
   const fullEntry = entryList.find((e) => kindById.get(e.challenge_id) === "full");
   const groupsEntry = entryList.find((e) => kindById.get(e.challenge_id) === "groups");
   const funEntry = entryList.find((e) => kindById.get(e.challenge_id) === "fun");
+  const playoffEntry = entryList.find((e) => kindById.get(e.challenge_id) === "playoff");
   const groupEntryIds = [fullEntry, groupsEntry].filter(Boolean).map((e) => e!.id);
 
   const [
@@ -53,6 +54,7 @@ export default async function ChallengesPage() {
     { data: funQuestions },
     { data: funAnswers },
     { data: redistRows },
+    { data: playoffBracketRows },
   ] = await Promise.all([
     groupEntryIds.length
       ? supabase
@@ -73,7 +75,7 @@ export default async function ChallengesPage() {
           .select("slot, winner_team_id, generation")
           .eq("entry_id", fullEntry.id)
       : Promise.resolve({ data: [] as never[] }),
-    fullEntry
+    fullEntry || playoffEntry
       ? supabase.from("teams").select("id, name")
       : Promise.resolve({ data: [] as never[] }),
     funEntry
@@ -89,6 +91,13 @@ export default async function ChallengesPage() {
           .eq("entry_id", fullEntry.id)
           .order("generation", { ascending: false })
           .limit(1)
+      : Promise.resolve({ data: [] as never[] }),
+    playoffEntry
+      ? supabase
+          .from("bracket_predictions")
+          .select("slot, winner_team_id")
+          .eq("entry_id", playoffEntry.id)
+          .eq("generation", 0)
       : Promise.resolve({ data: [] as never[] }),
   ]);
 
@@ -119,8 +128,8 @@ export default async function ChallengesPage() {
   };
 
   const completionByChallenge = new Map<number, EntryCompletion>();
+  const teamNameById = new Map((teams ?? []).map((tm) => [tm.id, tm.name]));
   if (fullEntry) {
-    const teamNameById = new Map((teams ?? []).map((tm) => [tm.id, tm.name]));
     completionByChallenge.set(fullEntry.challenge_id, {
       group: computeGroupCompletion(matchDTOs, validPredsFor(fullEntry.id, fullEntry.hardcore), now),
       bracket: computeBracketCompletion(
@@ -128,6 +137,16 @@ export default async function ChallengesPage() {
           slot: b.slot,
           winnerTeamId: b.winner_team_id,
         })),
+        teamNameById,
+      ),
+    });
+  }
+  if (playoffEntry) {
+    // The standalone Playoff challenge is a single generation-0 bracket (no
+    // redistribution), so the card shows its champion + knockout progress.
+    completionByChallenge.set(playoffEntry.challenge_id, {
+      bracket: computeBracketCompletion(
+        (playoffBracketRows ?? []).map((b) => ({ slot: b.slot, winnerTeamId: b.winner_team_id })),
         teamNameById,
       ),
     });
