@@ -4,6 +4,7 @@ import {
   computeBracketCompletion,
   computeFunCompletion,
   computeGroupCompletion,
+  latestGenerationRows,
   type EntryCompletion,
 } from "@/lib/predictions/completion";
 import type { GroupId } from "@/engine/types";
@@ -51,6 +52,7 @@ export default async function ChallengesPage() {
     { data: teams },
     { data: funQuestions },
     { data: funAnswers },
+    { data: redistRows },
   ] = await Promise.all([
     groupEntryIds.length
       ? supabase
@@ -68,9 +70,8 @@ export default async function ChallengesPage() {
     fullEntry
       ? supabase
           .from("bracket_predictions")
-          .select("slot, winner_team_id")
+          .select("slot, winner_team_id, generation")
           .eq("entry_id", fullEntry.id)
-          .eq("generation", 0)
       : Promise.resolve({ data: [] as never[] }),
     fullEntry
       ? supabase.from("teams").select("id, name")
@@ -80,6 +81,14 @@ export default async function ChallengesPage() {
       : Promise.resolve({ data: [] as never[] }),
     funEntry
       ? supabase.from("fun_answers").select("question_id").eq("entry_id", funEntry.id)
+      : Promise.resolve({ data: [] as never[] }),
+    fullEntry
+      ? supabase
+          .from("redistributions")
+          .select("stage, multiplier, generation")
+          .eq("entry_id", fullEntry.id)
+          .order("generation", { ascending: false })
+          .limit(1)
       : Promise.resolve({ data: [] as never[] }),
   ]);
 
@@ -115,7 +124,10 @@ export default async function ChallengesPage() {
     completionByChallenge.set(fullEntry.challenge_id, {
       group: computeGroupCompletion(matchDTOs, validPredsFor(fullEntry.id, fullEntry.hardcore), now),
       bracket: computeBracketCompletion(
-        (bracketRows ?? []).map((b) => ({ slot: b.slot, winnerTeamId: b.winner_team_id })),
+        latestGenerationRows(bracketRows ?? []).map((b) => ({
+          slot: b.slot,
+          winnerTeamId: b.winner_team_id,
+        })),
         teamNameById,
       ),
     });
@@ -140,15 +152,25 @@ export default async function ChallengesPage() {
   // Playoff (R32 picks) when the user's Full entry actually has those picks.
   const fullHasGroupPreds =
     !!fullEntry && (groupPreds ?? []).some((p) => p.entry_id === fullEntry.id);
+  // Copy source reads the Full entry's GENERATION-0 R32 picks (copyPlayoff
+  // copies from generation 0), so the check must ignore redistribution rows.
   const fullHasR32Picks =
     !!fullEntry &&
-    (bracketRows ?? []).some((b) => b.slot >= 73 && b.slot <= 88 && b.winner_team_id != null);
+    (bracketRows ?? []).some(
+      (b) => b.generation === 0 && b.slot >= 73 && b.slot <= 88 && b.winner_team_id != null,
+    );
   const copySourceFor = (kind: ChallengeRow["kind"]): string | null => {
     if (!fullEntry) return null;
     if (kind === "groups") return fullHasGroupPreds ? fullEntry.id : null;
     if (kind === "playoff") return fullHasR32Picks ? fullEntry.id : null;
     return null;
   };
+
+  // Active redistribution on the Full entry (latest stage + its multiplier) —
+  // surfaced as a card badge so the user sees their knockout points are scaled.
+  const redistribution = redistRows?.[0]
+    ? { stage: String(redistRows[0].stage), multiplier: Number(redistRows[0].multiplier) }
+    : null;
 
   return (
     <section className="flex flex-col gap-4">
@@ -160,6 +182,7 @@ export default async function ChallengesPage() {
           entry={entryByChallenge.get(challenge.id) ?? null}
           completion={completionByChallenge.get(challenge.id) ?? null}
           copySourceEntryId={copySourceFor(challenge.kind)}
+          redistribution={challenge.kind === "full" ? redistribution : null}
         />
       ))}
     </section>

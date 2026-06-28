@@ -109,6 +109,7 @@
     "groupLocked": "({count, plural, =1 {1 заблоковано до приєднання} few {# заблоковано до приєднання} other {# заблоковано до приєднання}})",
     "bracketProgress": "Сітка {done}/{total}",
     "championLabel": "Чемпіон: {name}",
+    "redistributionBadge": "Перерозподіл {round} · бали плейофу ×{multiplier}",
     "funProgress": "Відповіді {done}/{total}",
     "copy": {
       "button": "Скопіювати з «Весь турнір»",

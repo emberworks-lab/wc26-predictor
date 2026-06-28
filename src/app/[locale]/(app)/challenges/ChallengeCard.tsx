@@ -60,20 +60,33 @@ function missingPicks(completion: EntryCompletion | null): number {
   return m;
 }
 
+/** Maps a redistribution stage to its knockout-round label key. */
+const STAGE_ROUND_KEY: Record<string, string> = {
+  r32: "R32",
+  r16: "R16",
+  qf: "QF",
+  sf: "SF",
+  final: "F",
+};
+
 export default async function ChallengeCard({
   challenge,
   entry,
   completion,
   copySourceEntryId,
+  redistribution,
 }: {
   challenge: ChallengeRow;
   entry: EntryRow | null;
   completion?: EntryCompletion | null;
   /** Full entry id to offer "copy as template" from (Stage 9 item 3). */
   copySourceEntryId?: string | null;
+  /** Active redistribution on the Full entry — drives the points-scaled badge. */
+  redistribution?: { stage: string; multiplier: number } | null;
 }) {
   const t = await getTranslations("ChallengesHome");
   const tc = await getTranslations("Challenges.items");
+  const tr = await getTranslations("Predict.bracket.rounds");
   const status = statusOf(challenge, new Date());
   const submitted = entry?.submitted_at != null;
   const missing = missingPicks(completion ?? null);
@@ -192,6 +205,15 @@ export default async function ChallengeCard({
                 </span>
               )}
             </div>
+          )}
+
+          {redistribution && (
+            <span className="self-start rounded-full bg-gold-500/15 px-2.5 py-1 text-[11px] font-semibold text-gold-400">
+              {t("redistributionBadge", {
+                round: tr(STAGE_ROUND_KEY[redistribution.stage] ?? "R32"),
+                multiplier: redistribution.multiplier,
+              })}
+            </span>
           )}
 
           <div className="flex flex-wrap items-center gap-2">

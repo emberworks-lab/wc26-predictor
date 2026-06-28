@@ -109,6 +109,7 @@
     "groupLocked": "({count, plural, =1 {1 locked before you joined} other {# locked before you joined}})",
     "bracketProgress": "Bracket {done}/{total}",
     "championLabel": "Champion: {name}",
+    "redistributionBadge": "Redistributed at {round} · playoff points ×{multiplier}",
     "funProgress": "Answered {done}/{total}",
     "copy": {
       "button": "Copy from Full Tournament",
