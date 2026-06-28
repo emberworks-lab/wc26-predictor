@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import BracketView from "@/components/BracketView";
+import CopyFromFull from "../CopyFromFull";
 import EntrySubmitControls from "../EntrySubmitControls";
 import Countdown from "@/components/Countdown";
 import KickoffTime from "@/components/KickoffTime";
@@ -48,6 +49,7 @@ export default function PlayoffFlow({
   teams,
   realSlots,
   initialBracket,
+  copySourceEntryId,
   serverNow,
 }: {
   entry: { id: string; hardcore: boolean };
@@ -57,6 +59,8 @@ export default function PlayoffFlow({
   teams: TeamDTO[];
   realSlots: RealSlotDTO[];
   initialBracket: BracketPickDTO[];
+  /** Full entry id to prefill R32 picks from, when the user has them (else null). */
+  copySourceEntryId: string | null;
   serverNow: string;
 }) {
   const t = useTranslations("Playoff");
@@ -194,6 +198,12 @@ export default function PlayoffFlow({
           )
         )}
       </div>
+
+      {!readOnly && copySourceEntryId && r32.length >= 16 && (
+        <div className="rounded-2xl border border-pitch-700 bg-pitch-800 p-4">
+          <CopyFromFull sourceEntryId={copySourceEntryId} targetEntryId={entry.id} />
+        </div>
+      )}
 
       {clearedToast > 0 && (
         <p className="rounded-xl border border-gold-500/40 bg-gold-500/10 px-4 py-2.5 text-xs text-gold-400">

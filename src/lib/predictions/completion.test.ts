@@ -4,6 +4,7 @@ import {
   computeBracketCompletion,
   computeFunCompletion,
   computeGroupCompletion,
+  latestGenerationRows,
 } from "./completion";
 import type { GroupMatchDTO } from "./types";
 
@@ -77,6 +78,31 @@ describe("computeBracketCompletion", () => {
     expect(c.done).toBe(31);
     expect(c.complete).toBe(false);
     expect(c.championName).toBeNull();
+  });
+});
+
+describe("latestGenerationRows", () => {
+  it("returns generation-0 rows when there is no redistribution", () => {
+    const rows = [
+      { slot: 73, generation: 0 },
+      { slot: 104, generation: 0 },
+    ];
+    expect(latestGenerationRows(rows)).toEqual(rows);
+  });
+
+  it("returns only the highest generation when redistributions exist", () => {
+    const rows = [
+      { slot: 104, generation: 0, winnerTeamId: 7 }, // original champion
+      { slot: 104, generation: 1, winnerTeamId: 9 }, // redistributed champion
+      { slot: 73, generation: 1, winnerTeamId: 3 },
+    ];
+    const latest = latestGenerationRows(rows);
+    expect(latest.every((r) => r.generation === 1)).toBe(true);
+    expect(latest.find((r) => r.slot === 104)?.winnerTeamId).toBe(9);
+  });
+
+  it("returns [] for no rows", () => {
+    expect(latestGenerationRows([])).toEqual([]);
   });
 });
 

@@ -5,6 +5,7 @@ import { getLocale } from "next-intl/server";
 
 import { redirect } from "@/i18n/navigation";
 import { isChallengeLocked, isMatchLocked } from "@/engine/locks";
+import { latestGenerationRows } from "@/lib/predictions/completion";
 import {
   planGroupCopy,
   planPlayoffCopy,
@@ -265,9 +266,10 @@ async function copyPlayoff(
   const [{ data: srcRows }, { data: realMatches }] = await Promise.all([
     supabase
       .from("bracket_predictions")
-      .select("slot, home_team_id, away_team_id, winner_team_id, home_score, away_score, aet_pens")
+      .select(
+        "slot, generation, home_team_id, away_team_id, winner_team_id, home_score, away_score, aet_pens",
+      )
       .eq("entry_id", source.id)
-      .eq("generation", 0)
       .gte("slot", 73)
       .lte("slot", 88),
     supabase
@@ -277,7 +279,10 @@ async function copyPlayoff(
       .not("fifa_match_number", "is", null),
   ]);
 
-  const predicted: PredictedBracketSlot[] = (srcRows ?? [])
+  // Copy the user's LATEST Full bracket — a redistribution (already picked on
+  // the real R32) carries over far cleaner than the original generation-0
+  // bracket, which was made on the predicted pairings.
+  const predicted: PredictedBracketSlot[] = latestGenerationRows(srcRows ?? [])
     .filter((r) => r.winner_team_id != null)
     .map((r) => ({
       slot: r.slot,

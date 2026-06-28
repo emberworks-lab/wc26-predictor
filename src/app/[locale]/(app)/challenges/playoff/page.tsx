@@ -38,6 +38,28 @@ export default async function PlayoffPage({
     .maybeSingle();
   if (!entry) redirect({ href: "/challenges", locale });
 
+  // Copy-as-template source: the user's Full entry, offered in-flow when it has
+  // R32 picks to prefill from (copyPlayoff copies the latest generation, so any
+  // generation's R32 winners qualify). Mirrors the challenges-card gating,
+  // surfaced where the user is — the join redirect drops them into this flow.
+  const { data: fullEntry } = await supabase
+    .from("challenge_entries")
+    .select("id, challenges!inner(kind)")
+    .eq("user_id", user!.id)
+    .eq("challenges.kind", "full")
+    .maybeSingle();
+  let copySourceEntryId: string | null = null;
+  if (fullEntry) {
+    const { count } = await supabase
+      .from("bracket_predictions")
+      .select("slot", { count: "exact", head: true })
+      .eq("entry_id", fullEntry.id)
+      .gte("slot", 73)
+      .lte("slot", 88)
+      .not("winner_team_id", "is", null);
+    if ((count ?? 0) > 0) copySourceEntryId = fullEntry.id;
+  }
+
   const [{ data: teams }, { data: koMatches }, { data: bracket }] = await Promise.all([
     supabase
       .from("teams")
@@ -96,6 +118,7 @@ export default async function PlayoffPage({
       teams={teamDTOs}
       realSlots={slotDTOs}
       initialBracket={bracketDTOs}
+      copySourceEntryId={copySourceEntryId}
       serverNow={new Date().toISOString()}
     />
   );

@@ -82,9 +82,26 @@ export function computeGroupCompletion(
 }
 
 /**
- * Bracket completion from saved generation-0 rows. We count persisted picks
- * rather than re-deriving the engine bracket — the card answers "did my final /
- * third-place picks save?", and saved rows are exactly what scoring reads.
+ * Rows of the highest generation present — the active redistribution bracket,
+ * or generation 0 when the entry was never redistributed. This is the bracket
+ * the challenge card should surface (champion + progress), matching the profile
+ * page, instead of always showing the frozen generation-0 picks. Returns [] for
+ * no rows.
+ */
+export function latestGenerationRows<T extends { generation: number }>(
+  rows: readonly T[],
+): T[] {
+  if (rows.length === 0) return [];
+  const maxGen = Math.max(...rows.map((r) => r.generation));
+  return rows.filter((r) => r.generation === maxGen);
+}
+
+/**
+ * Bracket completion from saved bracket rows (the caller passes whichever
+ * generation it wants surfaced — see `latestGenerationRows`). We count
+ * persisted picks rather than re-deriving the engine bracket — the card answers
+ * "did my final / third-place picks save?", and saved rows are exactly what
+ * scoring reads.
  */
 export function computeBracketCompletion(
   bracketRows: ReadonlyArray<{ slot: number; winnerTeamId: number | null }>,
