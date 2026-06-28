@@ -156,10 +156,19 @@ function samePairing(a1: number, a2: number, b1: number, b2: number): boolean {
 }
 
 /**
- * Copies the user's Full R32 picks onto the real Round-of-32, slot by slot,
- * only where their predicted pairing equals the real one (SPEC item 3:
- * "leave mismatched slots empty"). Scores are re-oriented to the real
- * home/away order. A casual source can't fill a hardcore target's score.
+ * Copies the user's Full bracket onto the real Playoff bracket.
+ *
+ * The Round-of-32 is matched slot by slot, only where the predicted pairing
+ * equals the real one (SPEC item 3: "leave mismatched slots empty"); scores are
+ * re-oriented to the real home/away order, and a casual source can't fill a
+ * hardcore target's score.
+ *
+ * Later rounds (R16→final) are copied ONLY when the source aligns with the real
+ * R32 (no mismatches) — i.e. a redistribution bracket, already picked on the
+ * real teams, so its downstream derives identically in the target. A diverging
+ * predicted source (mismatch > 0) stays R32-only, since its later rounds sit on
+ * predicted teams that won't exist in the real bracket. `predicted` may carry
+ * the full bracket (slots 73–104); only its downstream rows are used here.
  */
 export function planPlayoffCopy(
   predicted: readonly PredictedBracketSlot[],
@@ -207,6 +216,32 @@ export function planPlayoffCopy(
         winnerTeamId: p.winnerTeamId,
         homeScore: null,
         awayScore: null,
+        aetPens: p.aetPens,
+      });
+    }
+  }
+
+  // Downstream rounds (R16→final, slots ≥ 89): copy only when the source's R32
+  // matched reality exactly. These slots aren't synced to a real pairing yet —
+  // the source bracket's own derived pairings carry over because the target
+  // re-derives from the same copied R32 winners with the same engine, so no
+  // re-orientation is needed (a redistribution snapshot is already in that
+  // order). Any branch whose R32 slot was skipped (locked/mismatch) is healed
+  // by the target's stale-clear on load.
+  if (skippedMismatch === 0) {
+    for (const p of predicted) {
+      if (p.slot < 89 || p.homeTeamId == null || p.awayTeamId == null) continue;
+      if (targetHardcore && (p.homeScore == null || p.awayScore == null)) {
+        skippedNeedsScore++;
+        continue;
+      }
+      rows.push({
+        slot: p.slot,
+        homeTeamId: p.homeTeamId,
+        awayTeamId: p.awayTeamId,
+        winnerTeamId: p.winnerTeamId,
+        homeScore: targetHardcore ? p.homeScore : null,
+        awayScore: targetHardcore ? p.awayScore : null,
         aetPens: p.aetPens,
       });
     }
